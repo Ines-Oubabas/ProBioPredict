@@ -3,45 +3,55 @@ import { IconLock, IconMail, IconUser } from '../components/Icons'
 
 function Register() {
   return (
-    <section className="auth-bg page-bg-register page-shell">
-      <section className="auth-center">
-        <article className="auth-card">
-          <h1>Register</h1>
-          <p>Create your ProBioPredict account and start tracking your results.</p>
+    <section className="auth-bg page-bg-register page-shell auth-panel">
+      <article className="auth-card card">
+        <h1>Create account</h1>
+        <p>Join ProBioPredict and start your prediction workflow in minutes.</p>
 
-          <form className="form-grid" onSubmit={(e) => e.preventDefault()}>
-            <label>
-              Full name
-              <div className="input-wrap">
-                <IconUser />
-                <input type="text" placeholder="Your name" />
-              </div>
-            </label>
+        <form onSubmit={(e) => e.preventDefault()}>
+          <div className="field">
+            <label htmlFor="register-name">Full name</label>
+            <div className="glass" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.6rem' }}>
+              <IconUser className="icon" />
+              <input id="register-name" type="text" placeholder="Jane Doe" />
+            </div>
+          </div>
 
-            <label>
-              Email
-              <div className="input-wrap">
-                <IconMail />
-                <input type="email" placeholder="you@example.com" />
-              </div>
-            </label>
+          <div className="field">
+            <label htmlFor="register-email">Email</label>
+            <div className="glass" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.6rem' }}>
+              <IconMail className="icon" />
+              <input id="register-email" type="email" placeholder="you@example.com" />
+            </div>
+          </div>
 
-            <label>
-              Password
-              <div className="input-wrap">
-                <IconLock />
-                <input type="password" placeholder="••••••••" />
-              </div>
-            </label>
+          <div className="field">
+            <label htmlFor="register-password">Password</label>
+            <div className="glass" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.6rem' }}>
+              <IconLock className="icon" />
+              <input id="register-password" type="password" placeholder="Create a password" />
+            </div>
+          </div>
 
-            <button className="btn btn-accent" type="submit">Create account (mock)</button>
-          </form>
+          <div className="field">
+            <label htmlFor="register-password-confirm">Confirm password</label>
+            <div className="glass" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.6rem' }}>
+              <IconLock className="icon" />
+              <input id="register-password-confirm" type="password" placeholder="Repeat your password" />
+            </div>
+          </div>
 
-          <p className="muted">
-            Already registered? <Link to="/login">Sign in</Link>
-          </p>
-        </article>
-      </section>
+          <div className="form-actions">
+            <button className="btn btn-accent" type="submit">
+              Create account (mock)
+            </button>
+          </div>
+        </form>
+
+        <p className="muted" style={{ marginTop: '0.8rem' }}>
+          Already registered? <Link to="/login">Sign in</Link>
+        </p>
+      </article>
     </section>
   )
 }

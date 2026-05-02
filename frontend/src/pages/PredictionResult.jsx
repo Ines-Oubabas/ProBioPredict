@@ -8,10 +8,10 @@ function PredictionResult() {
         <h1>Prediction result</h1>
         <p>Mocked response preview while backend integration is pending.</p>
 
-        <div className="result-layout">
-          <article className="card card-feature result-hero-card">
+        <div className="result-layout section-space">
+          <article className="card card-feature">
             <div className="result-badge">
-              <IconSpark />
+              <IconSpark className="icon" />
               <span>High confidence output</span>
             </div>
 
@@ -21,7 +21,7 @@ function PredictionResult() {
             <div className="result-metrics">
               <div>
                 <small>Classification</small>
-                <strong className="badge-good">Probiotic</strong>
+                <strong>Probiotic</strong>
               </div>
               <div>
                 <small>Confidence</small>
@@ -42,9 +42,13 @@ function PredictionResult() {
               <li>Compare with previous sequences</li>
             </ul>
 
-            <div className="row-actions">
-              <Link className="btn btn-ghost" to="/history">Open history</Link>
-              <Link className="btn btn-accent" to="/prediction">New prediction</Link>
+            <div className="form-actions">
+              <Link className="btn btn-ghost" to="/history">
+                Open history
+              </Link>
+              <Link className="btn btn-accent" to="/prediction">
+                New prediction
+              </Link>
             </div>
           </article>
         </div>

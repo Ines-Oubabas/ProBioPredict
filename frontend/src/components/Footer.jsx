@@ -8,8 +8,9 @@ function Footer() {
         <p>Biotech SaaS product prototype.</p>
       </div>
 
-      <nav className="footer-links" aria-label="Footer">
+      <nav className="footer-links" aria-label="Footer navigation">
         <Link to="/">Home</Link>
+        <Link to="/dashboard">Dashboard</Link>
         <Link to="/prediction">Prediction</Link>
         <Link to="/history">History</Link>
         <Link to="/premium">Premium</Link>

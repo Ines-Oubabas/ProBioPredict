@@ -45,13 +45,17 @@ function History() {
               <li key={`${row.sequence}-${row.date}`}>
                 <span>{row.sequence}</span>
                 <span>
-                  <span className={`status-pill ${row.result === 'Probiotic' ? 'status-healthy' : 'status-pending'}`}>
+                  <span className={`badge-pill ${row.result === 'Probiotic' ? 'badge-probiotic' : 'badge-non'}`}>
                     {row.result}
                   </span>
                 </span>
                 <span>{row.confidence}</span>
                 <span>{row.date}</span>
-                <span><Link className="text-link" to="/prediction-result">View details</Link></span>
+                <span>
+                  <Link className="btn btn-ghost" to="/prediction-result">
+                    View details
+                  </Link>
+                </span>
               </li>
             ))}
           </ul>

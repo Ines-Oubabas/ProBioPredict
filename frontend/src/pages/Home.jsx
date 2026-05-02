@@ -21,22 +21,28 @@ function Home() {
             A modern workspace to submit sequences, understand results quickly, and follow your progress.
           </p>
 
-          <div className="hero-indicators">
+          <div className="hero-tags">
             {heroIndicators.map((label) => (
-              <span key={label} className="chip">{label}</span>
+              <span key={label} className="tag">
+                {label}
+              </span>
             ))}
           </div>
 
-          <div className="hero-actions">
-            <Link className="btn btn-accent" to="/prediction">Start prediction</Link>
-            <a className="btn btn-ghost" href="#why">Learn more</a>
+          <div className="hero-ctas">
+            <Link className="btn btn-accent" to="/prediction">
+              Start prediction
+            </Link>
+            <a className="btn btn-ghost" href="#why">
+              Learn more
+            </a>
           </div>
         </div>
       </section>
 
-      <section className="panel section-space page-shell">
+      <section id="why" className="panel section-space page-shell">
         <h2 className="section-title">Why ProBioPredict?</h2>
-        <div className="cards-grid cards-grid-3">
+        <div className="cards-grid-3 section-space">
           {whyProBioPredict.map((item) => (
             <article className="card card-soft" key={item.title}>
               <h3>{item.title}</h3>
@@ -44,15 +50,17 @@ function Home() {
             </article>
           ))}
         </div>
-        <p className="cred-line">Designed for students, researchers, and biotech projects.</p>
+        <p className="muted" style={{ marginTop: '0.7rem', textAlign: 'center' }}>
+          Designed for students, researchers, and biotech projects.
+        </p>
       </section>
 
       <section className="panel section-space page-shell">
         <h2 className="section-title">How it works</h2>
-        <div className="timeline-wrap">
+        <div className="timeline-wrap section-space">
           {workflowSteps.map((step) => (
-            <article className="timeline-step" key={step.id}>
-              <span className="timeline-index">{step.id}</span>
+            <article className="card card-soft timeline-item" key={step.id}>
+              <span className="timeline-id">{step.id}</span>
               <h3>{step.title}</h3>
               <p>{step.description}</p>
             </article>
@@ -60,22 +68,22 @@ function Home() {
         </div>
       </section>
 
-      <section className="panel section-space break-panel page-shell">
-        <p className="break-kicker">Insight bridge</p>
-        <h2 className="section-title">From raw data to intelligent insights</h2>
-      </section>
-
       <section className="panel section-space page-shell">
         <h2 className="section-title">Platform modules</h2>
-        <div className="feature-mosaic">
-          <article className="feature-main">
-            <span className="feature-icon-box"><IconShield /></span>
+        <div className="feature-mosaic section-space">
+          <article className="card card-feature mosaic-main">
+            <span className="timeline-id">
+              <IconShield className="icon" />
+            </span>
             <h3>Secure workspace</h3>
             <p>Keep your workflow private, organized, and accessible only to the right people.</p>
           </article>
 
-          {modules.slice(1).map((mod) => (
-            <article className="feature-side" key={mod.name}>
+          {modules.slice(1).map((mod, index) => (
+            <article
+              className={`card card-soft mosaic-side-${index + 1}`}
+              key={mod.name}
+            >
               <h3>{mod.name}</h3>
               <p>{mod.hint}</p>
             </article>
@@ -85,47 +93,45 @@ function Home() {
 
       <section className="panel section-space page-shell">
         <h2 className="section-title">Dashboard preview</h2>
-        <div className="dashboard-showcase">
-          <article className="dashboard-main">
-            <div className="screen-topbar">
-              <span className="dot dot-r" />
-              <span className="dot dot-y" />
-              <span className="dot dot-g" />
-              <p>Product preview</p>
-            </div>
-
+        <div className="dashboard-main-grid section-space">
+          <article className="card card-feature">
+            <h3>Product preview</h3>
             <div className="screen-stats">
               {dashboardStats.map((stat) => (
-                <div className="screen-stat" key={stat.label}>
+                <div className="stat-chip" key={stat.label}>
                   <small>{stat.label}</small>
                   <strong>{stat.value}</strong>
                 </div>
               ))}
             </div>
 
-            <div className="latest-block">
+            <div className="section-space">
               <h3>Latest prediction</h3>
               <p className="result-label">L. casei A17</p>
-              <p>Classification: <strong className="badge-good">Probiotic</strong></p>
-              <p>Confidence: <strong>92%</strong></p>
+              <p>
+                Classification: <strong>Probiotic</strong>
+              </p>
+              <p>
+                Confidence: <strong>92%</strong>
+              </p>
             </div>
           </article>
 
-          <aside className="dashboard-side">
-            <article className="side-block">
+          <aside className="card card-soft">
+            <article>
               <h3>Quick snapshot</h3>
-              <p>Clean statuses, clear confidence, and immediate access to latest output.</p>
-              <Link className="text-link" to="/dashboard">Open dashboard →</Link>
+              <p>Clear statuses, readable confidence, and direct access to recent outputs.</p>
+              <Link className="btn btn-ghost" to="/dashboard">
+                Open dashboard
+              </Link>
             </article>
 
-            <article className="side-block">
+            <article className="section-space">
               <h3>Recent history</h3>
-              <ul className="compact-history-list">
+              <ul className="simple-list">
                 {recentHistory.slice(0, 4).map((item) => (
                   <li key={`${item.sequence}-${item.date}`}>
-                    <span className="history-name">{item.sequence}</span>
-                    <span className="history-status">{item.result}</span>
-                    <strong className="history-score">{item.confidence}</strong>
+                    {item.sequence} — {item.result} ({item.confidence})
                   </li>
                 ))}
               </ul>
@@ -136,32 +142,46 @@ function Home() {
 
       <section className="panel section-space page-shell">
         <h2 className="section-title">Data privacy & secure workflow</h2>
-        <div className="trust-grid">
-          <article className="trust-card">
-            <span className="trust-icon-wrap"><IconLock /></span>
+        <div className="cards-grid-3 section-space">
+          <article className="card card-soft">
+            <p className="timeline-id">
+              <IconLock className="icon" />
+            </p>
             <h3>Private workspace</h3>
             <p>Keep analyses in a dedicated and protected environment.</p>
           </article>
-          <article className="trust-card">
-            <span className="trust-icon-wrap"><IconShield /></span>
+          <article className="card card-soft">
+            <p className="timeline-id">
+              <IconShield className="icon" />
+            </p>
             <h3>Secure data handling</h3>
             <p>Submitted data is managed with a security-first workflow.</p>
           </article>
-          <article className="trust-card">
-            <span className="trust-icon-wrap"><IconChart /></span>
+          <article className="card card-soft">
+            <p className="timeline-id">
+              <IconChart className="icon" />
+            </p>
             <h3>Controlled access</h3>
             <p>Control who can access project outputs.</p>
           </article>
         </div>
       </section>
 
-      <section className="panel cta-panel section-space page-shell">
-        <IconSpark className="icon icon-accent" />
+      <section className="panel section-space page-shell">
+        <p style={{ display: 'flex', justifyContent: 'center' }}>
+          <IconSpark className="icon" />
+        </p>
         <h2 className="section-title">Ready to start your first prediction workflow?</h2>
-        <p>Explore the platform, run basic predictions, and upgrade when you need advanced features.</p>
-        <div className="cta-actions">
-          <Link className="btn btn-accent" to="/prediction">Start prediction</Link>
-          <Link className="btn btn-ghost" to="/premium">View premium plans</Link>
+        <p style={{ textAlign: 'center' }}>
+          Explore the platform, run basic predictions, and upgrade when you need advanced features.
+        </p>
+        <div className="hero-ctas">
+          <Link className="btn btn-accent" to="/prediction">
+            Start prediction
+          </Link>
+          <Link className="btn btn-ghost" to="/premium">
+            View premium plans
+          </Link>
         </div>
       </section>
     </>

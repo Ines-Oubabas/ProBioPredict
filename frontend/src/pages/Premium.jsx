@@ -1,106 +1,70 @@
-import { useState } from 'react'
 import { premiumPlans } from '../data/mockData'
-import { IconUpload, IconSpark } from '../components/Icons'
-
-function planTag(name) {
-  if (name === 'Starter') return 'For students'
-  if (name === 'Pro') return 'Recommended'
-  return 'For labs'
-}
 
 function Premium() {
-  const [isStudent, setIsStudent] = useState(false)
-  const [studentFile, setStudentFile] = useState(null)
-
-  const effectiveProPrice = isStudent && studentFile ? '0 € / mois' : '19 € / mois'
-
   return (
     <section className="page-shell">
       <section className="panel premium-panel">
-        <header className="premium-head">
-          <h1 className="section-title">Premium access</h1>
-          <p className="section-subtitle">Choose the plan that matches your research workflow.</p>
+        <header className="premium-head premium-hero">
+          <h1 className="section-title">Premium plans</h1>
+          <p className="section-subtitle">
+            Start free, validate your workflow, and scale with the right plan when your prediction volume grows.
+          </p>
+          <p className="premium-intro-copy">
+            Every user can begin with Free / Starter. The free plan includes up to 5 predictions. Beyond that limit,
+            upgrading to a paid plan is required.
+          </p>
         </header>
 
-        <article className="card card-soft student-access-card section-space">
-          <div className="student-grid">
-            <div className="student-copy">
-              <h3>Student access</h3>
-              <p>
-                Students can unlock the Pro plan for free after verification of a valid student card.
-                Professors, researchers, and laboratories keep paid premium access.
-              </p>
-              <p className="muted">Verification is mocked for now (prototype mode).</p>
-            </div>
-
-            <div className="student-actions">
-              <label className="student-toggle">
-                <input
-                  type="checkbox"
-                  checked={isStudent}
-                  onChange={(e) => setIsStudent(e.target.checked)}
-                />
-                <span>I am a student</span>
-              </label>
-
-              {isStudent ? (
-                <label className="upload-box premium-upload">
-                  <span className="upload-top">
-                    <IconUpload />
-                    <strong>Upload student card (PDF / image)</strong>
-                  </span>
-                  <input
-                    type="file"
-                    accept=".pdf,image/*"
-                    onChange={(e) => setStudentFile(e.target.files?.[0] || null)}
-                  />
-                  <small>{studentFile ? `Selected: ${studentFile.name}` : 'No file selected'}</small>
-                </label>
-              ) : (
-                <div className="upload-placeholder">
-                  <IconSpark />
-                  <span>Enable student mode to upload card</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </article>
-
-        <div className="pricing-grid section-space">
+        <div className="pricing-grid section-space premium-pricing-grid">
           {premiumPlans.map((plan) => {
             const isPro = plan.name === 'Pro'
-            const price = isPro ? effectiveProPrice : plan.price
+            const badgeLabel = plan.badge || (plan.highlighted ? 'Most popular' : null)
 
             return (
               <article
                 key={plan.name}
-                className={`card plan-card ${isPro ? 'plan-pro' : ''} ${plan.highlighted ? 'plan-highlight' : ''}`}
+                className={`card plan-card premium-plan-card ${isPro ? 'plan-pro' : ''} ${
+                  plan.highlighted ? 'plan-highlight' : ''
+                } plan-${plan.tone || ''}`}
               >
-                {plan.highlighted ? <span className="plan-badge">Most popular</span> : null}
-                <span className="plan-tag">{planTag(plan.name)}</span>
+                {badgeLabel ? <span className="plan-badge">{badgeLabel}</span> : null}
 
                 <div className="plan-top">
                   <h3>{plan.name}</h3>
-                  <p className="price">{price}</p>
+                  <p className="price">{plan.price}</p>
+                  {plan.description ? <p className="plan-description">{plan.description}</p> : null}
                 </div>
 
-                <ul className="simple-list plan-list">
+                <ul className="plan-list premium-feature-list">
                   {plan.bullets.map((item) => (
-                    <li key={item}>{item}</li>
+                    <li key={item}>
+                      <span className="feature-check" aria-hidden="true">
+                        ✓
+                      </span>
+                      <span>{item}</span>
+                    </li>
                   ))}
                 </ul>
 
                 <button className={`btn ${isPro ? 'btn-accent' : 'btn-ghost'} plan-btn`} type="button">
-                  Choose plan
+                  {plan.cta || 'Choose plan'}
                 </button>
               </article>
             )
           })}
         </div>
 
+        <div className="premium-help-text section-space">
+          <p className="muted">
+            Free / Starter is ideal for testing the platform. Pro fits regular or advanced usage. Lab is made for
+            teams, researchers, and laboratories.
+          </p>
+        </div>
+
         <div className="premium-footnote section-space">
           <p className="muted">
-            Payment integration is currently mocked. You can still explore the complete upgrade flow.
+            Payment flow is currently in prototype mode. You can still review the complete plan experience and upgrade
+            journey.
           </p>
         </div>
       </section>

@@ -24,12 +24,17 @@ function Navbar() {
         type="button"
         aria-label="Toggle navigation"
         aria-expanded={menuOpen}
+        aria-controls="main-nav"
         onClick={() => setMenuOpen((v) => !v)}
       >
         ☰
       </button>
 
-      <nav className={`nav-links ${menuOpen ? 'open' : ''}`} aria-label="Main navigation">
+      <nav
+        id="main-nav"
+        className={`nav-links ${menuOpen ? 'open' : ''}`}
+        aria-label="Main navigation"
+      >
         {navItems.map((item) => (
           <NavLink
             key={item.to}

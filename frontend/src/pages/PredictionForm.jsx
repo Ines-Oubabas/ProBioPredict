@@ -29,14 +29,12 @@ function PredictionForm() {
   }
 
   return (
-    <section className="auth-bg page-bg-prediction page-shell">
-      <section className="panel form-workflow">
-        <div className="form-intro">
-          <h1>Prediction submission</h1>
-          <p>Submit genomic sequence data in a guided workflow.</p>
-        </div>
+    <section className="page-bg-prediction page-shell">
+      <section className="panel">
+        <h1>Prediction submission</h1>
+        <p>Submit genomic sequence data in a guided workflow.</p>
 
-        <div className="form-layout">
+        <div className="form-layout section-space">
           <article className="card card-soft">
             <h3>Expected format</h3>
             <ul className="simple-list">
@@ -44,36 +42,54 @@ function PredictionForm() {
               <li>Use FASTA or plain DNA sequence (A, T, G, C).</li>
               <li>File upload will be added in a future step.</li>
             </ul>
+
             <p className="muted">Example:</p>
-            <pre className="sequence-example">{sequenceExample}</pre>
+            <pre
+              style={{
+                whiteSpace: 'pre-wrap',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.10)',
+                borderRadius: '12px',
+                padding: '0.7rem',
+                overflowX: 'auto',
+              }}
+            >
+              {sequenceExample}
+            </pre>
           </article>
 
-          <form className="card card-feature form-grid" onSubmit={handleSubmit}>
-            <label>
-              Sequence ID *
+          <form className="card card-feature" onSubmit={handleSubmit}>
+            <div className="field">
+              <label htmlFor="sequence-id">Sequence ID *</label>
               <input
+                id="sequence-id"
                 type="text"
                 placeholder="e.g. LCASEI_A17"
                 value={sequenceId}
                 onChange={(e) => setSequenceId(e.target.value)}
               />
-            </label>
+            </div>
 
-            <label>
-              Genomic sequence *
+            <div className="field">
+              <label htmlFor="genomic-sequence">Genomic sequence *</label>
               <textarea
+                id="genomic-sequence"
                 rows="10"
                 placeholder="ATGCATGC..."
                 value={sequence}
                 onChange={(e) => setSequence(e.target.value)}
               />
-            </label>
+            </div>
 
-            {error ? <p className="error-text">{error}</p> : null}
+            {error ? (
+              <p style={{ color: '#ffb4b4', margin: '0.4rem 0 0' }}>{error}</p>
+            ) : null}
 
-            <button className="btn btn-accent" type="submit" disabled={loading}>
-              {loading ? 'Processing...' : 'Run prediction (mock)'}
-            </button>
+            <div className="form-actions">
+              <button className="btn btn-accent" type="submit" disabled={loading}>
+                {loading ? 'Processing...' : 'Run prediction (mock)'}
+              </button>
+            </div>
           </form>
         </div>
       </section>
