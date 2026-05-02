@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
+import ProtectedRoute from './components/ProtectedRoute'
 import Dashboard from './pages/Dashboard'
 import History from './pages/History'
 import Home from './pages/Home'
@@ -14,15 +15,21 @@ function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
+        {/* Public routes */}
         <Route path="/" element={<Home />} />
+        <Route path="/premium" element={<Premium />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/prediction" element={<PredictionForm />} />
-        <Route path="/prediction-result" element={<PredictionResult />} />
-        <Route path="/history" element={<History />} />
-        <Route path="/premium" element={<Premium />} />
+
+        {/* Private routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/prediction" element={<PredictionForm />} />
+          <Route path="/prediction-result" element={<PredictionResult />} />
+          <Route path="/history" element={<History />} />
+        </Route>
       </Route>
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
