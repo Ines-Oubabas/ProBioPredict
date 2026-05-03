@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { IconLock, IconMail, IconUser } from '../components/Icons'
-import { getAccessToken, register } from '../services/authApi'
+import { isAuthenticated, register } from '../services/authApi'
 
 function Register() {
   const navigate = useNavigate()
@@ -18,8 +18,7 @@ function Register() {
   const [successMessage, setSuccessMessage] = useState('')
 
   useEffect(() => {
-    const access = getAccessToken()
-    if (access) {
+    if (isAuthenticated()) {
       navigate('/dashboard', { replace: true })
     }
   }, [navigate])
@@ -42,7 +41,6 @@ function Register() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
-
     if (isSubmitting) return
 
     setErrorMessage('')
@@ -71,7 +69,7 @@ function Register() {
       setSuccessMessage('Account created successfully. Redirecting to dashboard...')
       setTimeout(() => {
         navigate('/dashboard', { replace: true })
-      }, 500)
+      }, 300)
     } catch (error) {
       setErrorMessage(error.message || 'Registration failed. Please try again.')
     } finally {
@@ -88,6 +86,8 @@ function Register() {
         {errorMessage ? (
           <p
             className="muted"
+            role="alert"
+            aria-live="assertive"
             style={{
               marginTop: '0.75rem',
               marginBottom: '0.75rem',
@@ -105,6 +105,8 @@ function Register() {
         {successMessage ? (
           <p
             className="muted"
+            role="status"
+            aria-live="polite"
             style={{
               marginTop: '0.75rem',
               marginBottom: '0.75rem',

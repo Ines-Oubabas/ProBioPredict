@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { IconLock, IconMail } from '../components/Icons'
-import { getAccessToken, login } from '../services/authApi'
+import { isAuthenticated, login } from '../services/authApi'
 
 function Login() {
   const navigate = useNavigate()
@@ -19,11 +19,10 @@ function Login() {
   const [successMessage, setSuccessMessage] = useState('')
 
   useEffect(() => {
-    const access = getAccessToken()
-    if (access) {
-      navigate('/dashboard', { replace: true })
+    if (isAuthenticated()) {
+      navigate(fromPath, { replace: true })
     }
-  }, [navigate])
+  }, [navigate, fromPath])
 
   const handleChange = (event) => {
     const { id, value } = event.target
@@ -41,7 +40,6 @@ function Login() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
-
     if (isSubmitting) return
 
     setErrorMessage('')
@@ -63,7 +61,7 @@ function Login() {
       setSuccessMessage('Login successful. Redirecting...')
       setTimeout(() => {
         navigate(fromPath, { replace: true })
-      }, 350)
+      }, 250)
     } catch (error) {
       setErrorMessage(error.message || 'Login failed. Please try again.')
     } finally {
@@ -80,6 +78,8 @@ function Login() {
         {errorMessage ? (
           <p
             className="muted"
+            role="alert"
+            aria-live="assertive"
             style={{
               marginTop: '0.75rem',
               marginBottom: '0.75rem',
@@ -97,6 +97,8 @@ function Login() {
         {successMessage ? (
           <p
             className="muted"
+            role="status"
+            aria-live="polite"
             style={{
               marginTop: '0.75rem',
               marginBottom: '0.75rem',
@@ -166,8 +168,8 @@ function Login() {
             <button className="btn btn-accent" type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Signing in...' : 'Continue'}
             </button>
-            <Link className="btn btn-ghost" to="#">
-              Forgot password?
+            <Link className="btn btn-ghost" to="/register">
+              Create account
             </Link>
           </div>
         </form>

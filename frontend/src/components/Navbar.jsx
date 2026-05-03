@@ -1,54 +1,54 @@
-import { useEffect, useState } from 'react'
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { getAccessToken, getCurrentUser, logout } from '../services/authApi'
+import { useEffect, useMemo, useState } from 'react'
+import { NavLink, useNavigate } from 'react-router-dom'
+import {
+  getCurrentUser,
+  isAuthenticated,
+  logout,
+  subscribeAuthChanges,
+} from '../services/authApi'
 
-const navItems = [
+const publicNavItems = [
   { to: '/', label: 'Home' },
+  { to: '/premium', label: 'Premium' },
+]
+
+const privateNavItems = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/prediction', label: 'Prediction' },
   { to: '/history', label: 'History' },
-  { to: '/premium', label: 'Premium' },
 ]
 
 function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getAccessToken()))
-  const [currentUser, setCurrentUser] = useState(getCurrentUser())
+  const [authState, setAuthState] = useState({
+    isAuthenticated: isAuthenticated(),
+    user: getCurrentUser(),
+  })
 
-  const location = useLocation()
   const navigate = useNavigate()
 
   const closeMenu = () => setMenuOpen(false)
 
   useEffect(() => {
-    // Re-sync auth state on route change
-    setIsAuthenticated(Boolean(getAccessToken()))
-    setCurrentUser(getCurrentUser())
-  }, [location.pathname])
-
-  useEffect(() => {
-    // Sync across tabs/windows
-    const onStorage = () => {
-      setIsAuthenticated(Boolean(getAccessToken()))
-      setCurrentUser(getCurrentUser())
-    }
-
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
+    const unsubscribe = subscribeAuthChanges((state) => {
+      setAuthState(state)
+    })
+    return unsubscribe
   }, [])
 
   const handleLogout = () => {
     logout()
-    setIsAuthenticated(false)
-    setCurrentUser(null)
-    closeMenu()
+    setMenuOpen(false)
     navigate('/login', { replace: true })
   }
 
-  const displayName =
-    currentUser?.full_name?.trim() ||
-    currentUser?.email?.trim() ||
-    'User'
+  const displayName = useMemo(() => {
+    return authState.user?.full_name?.trim() || authState.user?.email?.trim() || 'User'
+  }, [authState.user])
+
+  const navItems = authState.isAuthenticated
+    ? [...publicNavItems, ...privateNavItems]
+    : publicNavItems
 
   return (
     <header className="app-header glass">
@@ -85,7 +85,7 @@ function Navbar() {
       </nav>
 
       <div className={`auth-links ${menuOpen ? 'open' : ''}`}>
-        {isAuthenticated ? (
+        {authState.isAuthenticated ? (
           <>
             <span className="muted" style={{ alignSelf: 'center', marginRight: '0.25rem' }}>
               Hello, {displayName}
