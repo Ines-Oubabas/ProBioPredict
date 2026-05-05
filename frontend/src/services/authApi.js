@@ -1,7 +1,14 @@
-const API_BASE_URL = 'http://127.0.0.1:8000/api/auth'
+const API_BASE_URL = (
+  import.meta.env.VITE_API_AUTH_BASE_URL || 'http://127.0.0.1:8000/api/auth'
+).replace(/\/+$/, '')
+
+const API_GLOBAL_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'
+).replace(/\/+$/, '')
+
 const TOKEN_REFRESH_CANDIDATES = [
   `${API_BASE_URL}/token/refresh/`,
-  'http://127.0.0.1:8000/api/token/refresh/',
+  `${API_GLOBAL_BASE_URL}/token/refresh/`,
 ]
 
 const STORAGE_KEYS = {
@@ -59,23 +66,19 @@ function toMessageList(value) {
 function cleanBackendErrors(data) {
   if (!data) return null
 
-  // Cas simple: backend renvoie déjà une string "propre"
   if (typeof data === 'string') {
     const msg = data.trim()
     return msg || null
   }
 
-  // Cas classique DRF: { detail: "..." }
   if (typeof data?.detail === 'string' && data.detail.trim()) {
     return data.detail.trim()
   }
 
-  // Cas alternatif: { message: "..." }
   if (typeof data?.message === 'string' && data.message.trim()) {
     return data.message.trim()
   }
 
-  // Cas objet de champs: { email: ["..."], password_confirm: ["..."] }
   if (typeof data === 'object') {
     const formatted = []
 
@@ -85,7 +88,6 @@ function cleanBackendErrors(data) {
 
       const fieldLabel = FIELD_LABELS[field]
 
-      // Si label vide => on n'affiche pas "detail:", "email:", etc.
       if (fieldLabel === '') {
         formatted.push(...messages)
       } else {
@@ -93,12 +95,8 @@ function cleanBackendErrors(data) {
       }
     })
 
-    // Dédupliquer sans casser l'ordre
     const unique = [...new Set(formatted.map((m) => m.trim()).filter(Boolean))]
-
-    if (unique.length > 0) {
-      return unique.join(' ')
-    }
+    if (unique.length > 0) return unique.join(' ')
   }
 
   return null
