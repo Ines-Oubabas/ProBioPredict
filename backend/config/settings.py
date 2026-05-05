@@ -42,19 +42,19 @@ def env_list(name, default=""):
 # Core security/runtime
 # ------------------------------------------------------------------------------
 
-# In production, set DJANGO_SECRET_KEY in environment.
-# Fallback keeps local dev from breaking before .env is configured.
-SECRET_KEY = os.getenv(
-    "DJANGO_SECRET_KEY",
-    "dev-only-insecure-secret-key-change-me",
-)
-
-# In production, DJANGO_DEBUG should be False.
-# Default True keeps local development behavior.
 DEBUG = env_bool("DJANGO_DEBUG", True)
 
 # Keep local compatibility; override from .env when needed.
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
+
+# In production, SECRET_KEY must be explicitly provided.
+# For local dev only, allow a fallback to avoid breaking first run.
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = "dev-only-insecure-secret-key-change-me"
+    else:
+        raise ValueError("DJANGO_SECRET_KEY is required when DJANGO_DEBUG=False.")
 
 
 # ------------------------------------------------------------------------------
@@ -72,11 +72,8 @@ INSTALLED_APPS = [
     "corsheaders",
     "users",
     "predictions",
-    # NOTE:
-    # Do not enable simplejwt token blacklist app yet (as requested).
-    # If enabled later, add:
-    # "rest_framework_simplejwt.token_blacklist"
-    # and run migrations.
+    # Enable later when refresh rotation/blacklist is activated:
+    # "rest_framework_simplejwt.token_blacklist",
 ]
 
 MIDDLEWARE = [
@@ -114,13 +111,21 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database (PostgreSQL)
 # ------------------------------------------------------------------------------
 # Reads from .env when present; defaults keep current local setup working.
+# In production, POSTGRES_PASSWORD must be set explicitly.
+
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+if not POSTGRES_PASSWORD:
+    if DEBUG:
+        POSTGRES_PASSWORD = "local-dev-password-change-me"
+    else:
+        raise ValueError("POSTGRES_PASSWORD is required when DJANGO_DEBUG=False.")
 
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.getenv("POSTGRES_DB", "probiopredict_db"),
         "USER": os.getenv("POSTGRES_USER", "probiopredict_user"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "ProBio123!"),
+        "PASSWORD": POSTGRES_PASSWORD,
         "HOST": os.getenv("POSTGRES_HOST", "localhost"),
         "PORT": os.getenv("POSTGRES_PORT", "5432"),
     }
@@ -132,18 +137,10 @@ DATABASES = {
 # ------------------------------------------------------------------------------
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
-    },
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
 
@@ -160,20 +157,21 @@ REST_FRAMEWORK = {
     ),
 }
 
+
 # ------------------------------------------------------------------------------
 # Simple JWT
 # ------------------------------------------------------------------------------
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(
-        minutes=int(os.getenv("JWT_ACCESS_TOKEN_MINUTES", "30"))
+        minutes=int(os.getenv("JWT_ACCESS_TOKEN_MINUTES", "15"))
     ),
     "REFRESH_TOKEN_LIFETIME": timedelta(
         days=int(os.getenv("JWT_REFRESH_TOKEN_DAYS", "7"))
     ),
-    # Keep stable current behavior (no rotation/blacklist yet).
-    "ROTATE_REFRESH_TOKENS": False,
-    "BLACKLIST_AFTER_ROTATION": False,
+    # Keep current behavior stable for now; enable rotation once blacklist app is enabled.
+    "ROTATE_REFRESH_TOKENS": env_bool("JWT_ROTATE_REFRESH_TOKENS", False),
+    "BLACKLIST_AFTER_ROTATION": env_bool("JWT_BLACKLIST_AFTER_ROTATION", False),
     "UPDATE_LAST_LOGIN": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
@@ -194,15 +192,12 @@ USE_TZ = True
 # ------------------------------------------------------------------------------
 
 STATIC_URL = "static/"
-
-# Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 # ------------------------------------------------------------------------------
 # CORS / CSRF
 # ------------------------------------------------------------------------------
-# Default keeps frontend Vite local URL compatible.
 
 CORS_ALLOWED_ORIGINS = env_list(
     "CORS_ALLOWED_ORIGINS",
@@ -216,20 +211,38 @@ CSRF_TRUSTED_ORIGINS = env_list(
 
 
 # ------------------------------------------------------------------------------
-# Progressive security headers (safe defaults for local dev)
+# Security headers / cookies
 # ------------------------------------------------------------------------------
 
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 REFERRER_POLICY = "strict-origin-when-cross-origin"
 
-# Keep HTTPS redirect OFF by default in local dev.
-# Can be enabled in production via env.
-SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", False)
-
-# Avoid breaking local HTTP workflow; secure cookies can be enabled via env/prod.
+SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", not DEBUG)
 SESSION_COOKIE_SECURE = env_bool("DJANGO_SESSION_COOKIE_SECURE", not DEBUG)
 CSRF_COOKIE_SECURE = env_bool("DJANGO_CSRF_COOKIE_SECURE", not DEBUG)
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SAMESITE = os.getenv("DJANGO_SESSION_COOKIE_SAMESITE", "Lax")
+CSRF_COOKIE_SAMESITE = os.getenv("DJANGO_CSRF_COOKIE_SAMESITE", "Lax")
+
+
+# ------------------------------------------------------------------------------
+# Email (future "send prediction result by email")
+# ------------------------------------------------------------------------------
+# Dev mock example:
+# EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+# Real SMTP example:
+# EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend",
+)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "1025" if DEBUG else "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", not DEBUG)
+EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", False)
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@probiopredict.local")
+SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
