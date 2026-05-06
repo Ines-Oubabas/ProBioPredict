@@ -3,6 +3,7 @@
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -22,6 +23,8 @@ class RegisterView(APIView):
     """Handle user registration and return JWT tokens + user payload."""
 
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth_register"
 
     def post(self, request):
         """Create a user account from validated payload."""
@@ -46,6 +49,8 @@ class LoginView(APIView):
     """Handle user login and return JWT tokens + user payload."""
 
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth_login"
 
     def post(self, request):
         """Validate credentials and return auth tokens."""

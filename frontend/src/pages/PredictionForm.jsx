@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { submitPredictionCsv } from '../services/predictionApi'
 
 const csvExample = `sequence_id,truncated_dna
 LCASEI_A17,ATGCTTGACTTACCGATGAGTTCTAACGGTACCGTTAGCTAGCTACCGATAGC
@@ -8,7 +9,6 @@ LCASEI_A18,TTGACCGATGAGTTCTAACGGTACCGTTAGCTAGCTACCGATAGCATGCTTGA`
 function PredictionForm() {
   const navigate = useNavigate()
 
-  // Kept optional: can help identify or group the analysis request.
   const [sequenceId, setSequenceId] = useState('')
   const [csvFile, setCsvFile] = useState(null)
   const [error, setError] = useState('')
@@ -38,17 +38,15 @@ function PredictionForm() {
     setCsvFile(file)
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
     if (loading) return
 
-    // Validation: file is required
     if (!csvFile) {
       setError('A CSV file containing truncated DNA is required.')
       return
     }
 
-    // Validation: extension must be .csv
     if (!isCsvFile(csvFile)) {
       setError('Invalid format. Please upload a .csv file only.')
       return
@@ -57,21 +55,24 @@ function PredictionForm() {
     setError('')
     setLoading(true)
 
-    // Prepare future backend integration (multipart/form-data)
-    const formData = new FormData()
-    formData.append('dna_file', csvFile)
-    if (sequenceId.trim()) {
-      formData.append('sequence_id', sequenceId.trim())
-    }
+    try {
+      const result = await submitPredictionCsv({
+        csvFile,
+        sequenceId: sequenceId.trim(),
+      })
 
-    // TODO (backend integration):
-    // await fetch('/api/predictions/upload/', { method: 'POST', body: formData, headers: { Authorization: `Bearer ...` } })
-
-    // Mock flow kept to avoid breaking current behavior
-    setTimeout(() => {
+      navigate('/prediction-result', {
+        state: {
+          predictionResponse: result,
+          submittedSequenceId: sequenceId.trim() || null,
+          submittedFileName: csvFile.name,
+        },
+      })
+    } catch (err) {
+      setError(err?.message || 'Prediction submission failed.')
+    } finally {
       setLoading(false)
-      navigate('/prediction-result')
-    }, 900)
+    }
   }
 
   return (
@@ -118,6 +119,7 @@ function PredictionForm() {
                 placeholder="e.g. Batch_2026_05_04"
                 value={sequenceId}
                 onChange={(e) => setSequenceId(e.target.value)}
+                disabled={loading}
               />
             </div>
 
@@ -128,6 +130,7 @@ function PredictionForm() {
                 type="file"
                 accept=".csv,text/csv"
                 onChange={handleFileChange}
+                disabled={loading}
               />
               <p className="muted" style={{ marginTop: '0.45rem' }}>
                 Accepted format: <strong>.csv</strong>
@@ -148,7 +151,7 @@ function PredictionForm() {
 
             <div className="form-actions">
               <button className="btn btn-accent" type="submit" disabled={loading}>
-                {loading ? 'Processing...' : 'Run prediction (mock)'}
+                {loading ? 'Uploading...' : 'Run prediction'}
               </button>
             </div>
           </form>

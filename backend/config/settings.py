@@ -72,9 +72,14 @@ INSTALLED_APPS = [
     "corsheaders",
     "users",
     "predictions",
-    # Enable later when refresh rotation/blacklist is activated:
+    # Progressive strategy:
+    # keep disabled by default in current stable flow; enable with env toggle when ready.
     # "rest_framework_simplejwt.token_blacklist",
 ]
+
+# Optional progressive activation of JWT blacklist app via env.
+if env_bool("JWT_ENABLE_TOKEN_BLACKLIST_APP", False):
+    INSTALLED_APPS.append("rest_framework_simplejwt.token_blacklist")
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
@@ -110,8 +115,6 @@ WSGI_APPLICATION = "config.wsgi.application"
 # ------------------------------------------------------------------------------
 # Database (PostgreSQL)
 # ------------------------------------------------------------------------------
-# Reads from .env when present; defaults keep current local setup working.
-# In production, POSTGRES_PASSWORD must be set explicitly.
 
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 if not POSTGRES_PASSWORD:
@@ -155,6 +158,23 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
+    # Anti brute-force baseline + future per-view scoped throttles
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        # Global baselines
+        "anon": os.getenv("DRF_THROTTLE_ANON", "60/min"),
+        "user": os.getenv("DRF_THROTTLE_USER", "120/min"),
+        # Auth-sensitive endpoints (to apply in views via throttle_scope)
+        "auth_login": os.getenv("DRF_THROTTLE_AUTH_LOGIN", "5/min"),
+        "auth_register": os.getenv("DRF_THROTTLE_AUTH_REGISTER", "3/min"),
+        "auth_refresh": os.getenv("DRF_THROTTLE_AUTH_REFRESH", "10/min"),
+        # Future prediction upload endpoint
+        "prediction_upload": os.getenv("DRF_THROTTLE_PREDICTION_UPLOAD", "10/min"),
+    },
 }
 
 
@@ -169,7 +189,7 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(
         days=int(os.getenv("JWT_REFRESH_TOKEN_DAYS", "7"))
     ),
-    # Keep current behavior stable for now; enable rotation once blacklist app is enabled.
+    # Progressive defaults: keep disabled unless env explicitly enables.
     "ROTATE_REFRESH_TOKENS": env_bool("JWT_ROTATE_REFRESH_TOKENS", False),
     "BLACKLIST_AFTER_ROTATION": env_bool("JWT_BLACKLIST_AFTER_ROTATION", False),
     "UPDATE_LAST_LOGIN": True,
@@ -225,18 +245,56 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = os.getenv("DJANGO_SESSION_COOKIE_SAMESITE", "Lax")
 CSRF_COOKIE_SAMESITE = os.getenv("DJANGO_CSRF_COOKIE_SAMESITE", "Lax")
 
+# Optional hardening for reverse proxy + HSTS in production
+if env_bool("DJANGO_USE_X_FORWARDED_PROTO", False):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+if env_bool("DJANGO_ENABLE_HSTS", False):
+    SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", "31536000"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
+        "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS", True
+    )
+    SECURE_HSTS_PRELOAD = env_bool("DJANGO_SECURE_HSTS_PRELOAD", False)
+
+
+# ------------------------------------------------------------------------------
+# Upload security limits (for future predictions upload endpoint)
+# ------------------------------------------------------------------------------
+
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(
+    os.getenv("DATA_UPLOAD_MAX_MEMORY_SIZE", str(2 * 1024 * 1024))
+)
+FILE_UPLOAD_MAX_MEMORY_SIZE = int(
+    os.getenv("FILE_UPLOAD_MAX_MEMORY_SIZE", str(2 * 1024 * 1024))
+)
+
+PREDICTION_UPLOAD_MAX_BYTES = int(
+    os.getenv("PREDICTION_UPLOAD_MAX_BYTES", str(512 * 1024))
+)
+PREDICTION_UPLOAD_MAX_ROWS = int(os.getenv("PREDICTION_UPLOAD_MAX_ROWS", "5000"))
+PREDICTION_UPLOAD_ALLOWED_EXTENSIONS = env_list(
+    "PREDICTION_UPLOAD_ALLOWED_EXTENSIONS",
+    ".csv",
+)
+PREDICTION_UPLOAD_ALLOWED_MIME_TYPES = env_list(
+    "PREDICTION_UPLOAD_ALLOWED_MIME_TYPES",
+    "text/csv,application/csv,application/vnd.ms-excel,text/plain",
+)
+PREDICTION_UPLOAD_EXPECTED_COLUMNS = env_list(
+    "PREDICTION_UPLOAD_EXPECTED_COLUMNS",
+    "sequence_id,truncated_dna",
+)
+
 
 # ------------------------------------------------------------------------------
 # Email (future "send prediction result by email")
 # ------------------------------------------------------------------------------
-# Dev mock example:
-# EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
-# Real SMTP example:
-# EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
 
 EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND",
-    "django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend",
+    "django.core.mail.backends.console.EmailBackend"
+    if DEBUG
+    else "django.core.mail.backends.smtp.EmailBackend",
 )
 EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "1025" if DEBUG else "587"))
@@ -246,3 +304,36 @@ EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", not DEBUG)
 EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", False)
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@probiopredict.local")
 SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
+
+
+# ------------------------------------------------------------------------------
+# Logging (progressive security observability)
+# ------------------------------------------------------------------------------
+
+LOG_LEVEL = os.getenv("DJANGO_LOG_LEVEL", "INFO")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s %(levelname)s %(name)s %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
+    },
+    "loggers": {
+        "django": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": True},
+        "django.security": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "users": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "predictions": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+    },
+}
