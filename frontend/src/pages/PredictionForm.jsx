@@ -9,7 +9,6 @@ LCASEI_A18,TTGACCGATGAGTTCTAACGGTACCGTTAGCTAGCTACCGATAGCATGCTTGA`
 function PredictionForm() {
   const navigate = useNavigate()
 
-  const [sequenceId, setSequenceId] = useState('')
   const [csvFile, setCsvFile] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -58,13 +57,11 @@ function PredictionForm() {
     try {
       const result = await submitPredictionCsv({
         csvFile,
-        sequenceId: sequenceId.trim(),
       })
 
       navigate('/prediction-result', {
         state: {
           predictionResponse: result,
-          submittedSequenceId: sequenceId.trim() || null,
           submittedFileName: csvFile.name,
         },
       })
@@ -86,12 +83,38 @@ function PredictionForm() {
         <div className="form-layout section-space">
           <article className="card card-soft">
             <h3>Expected CSV format</h3>
+
             <ul className="simple-list">
-              <li>Upload a file with the <strong>.csv</strong> extension only.</li>
-              <li>The file must contain truncated DNA sequence data.</li>
               <li>
-                <strong>Sequence ID</strong> in the form is optional and can be used to label the
-                analysis.
+                The uploaded file must be in <strong>.csv</strong> format.
+              </li>
+              <li>
+                The first line must be a header row.
+              </li>
+              <li>
+                Required columns must be exactly: <strong>sequence_id,truncated_dna</strong>.
+              </li>
+              <li>
+                <strong>sequence_id</strong> is used to identify each sequence.
+              </li>
+              <li>
+                <strong>truncated_dna</strong> must contain only the letters <strong>A, C, G, T</strong>.
+              </li>
+              <li>
+                No required field should be empty.
+              </li>
+              <li>
+                The file must respect backend size and row limits.
+              </li>
+              <li>
+                After uploading the file, click <strong>Run prediction</strong>.
+              </li>
+              <li>
+                The result will then be shown on the <strong>PredictionResult</strong> page.
+              </li>
+              <li>
+                <strong>Download result</strong> and <strong>Send result by email</strong> actions are available
+                after results are displayed.
               </li>
             </ul>
 
@@ -111,18 +134,6 @@ function PredictionForm() {
           </article>
 
           <form className="card card-feature" onSubmit={handleSubmit}>
-            <div className="field">
-              <label htmlFor="sequence-id">Sequence ID (optional)</label>
-              <input
-                id="sequence-id"
-                type="text"
-                placeholder="e.g. Batch_2026_05_04"
-                value={sequenceId}
-                onChange={(e) => setSequenceId(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-
             <div className="field">
               <label htmlFor="dna-csv-file">Truncated DNA CSV file *</label>
               <input

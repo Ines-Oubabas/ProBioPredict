@@ -1,11 +1,12 @@
-"""URL routes for prediction endpoints."""
-
 from django.urls import path
 
-from .views import PredictionUploadView
-
-app_name = "predictions"
+from .views import PredictionUploadView, SendPredictionResultEmailView
 
 urlpatterns = [
-    path("upload/", PredictionUploadView.as_view(), name="upload"),
+    path("upload/", PredictionUploadView.as_view(), name="prediction-upload"),
+    path(
+        "send-result-email/",
+        SendPredictionResultEmailView.as_view(),
+        name="prediction-send-result-email",
+    ),
 ]

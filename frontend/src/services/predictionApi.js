@@ -119,3 +119,45 @@ export async function submitPredictionCsv(payload) {
     throw new Error(normalizeError(error, 'Prediction submission failed.'))
   }
 }
+
+export async function sendPredictionResultByEmail({
+  summary,
+  results,
+  submittedFileName = null,
+  submittedSequenceId = null,
+}) {
+  const accessToken = getAccessToken()
+  if (!accessToken) {
+    throw new Error('You must be logged in to send prediction results by email.')
+  }
+
+  const payload = {
+    summary: summary || {},
+    results: Array.isArray(results) ? results : [],
+    submittedFileName: submittedFileName || null,
+    submittedSequenceId: submittedSequenceId || null,
+  }
+
+  const response = await fetch(`${API_BASE_URL}/predictions/send-result-email/`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  const data = await parseResponse(response)
+
+  if (!response.ok) {
+    const backendMessage = cleanBackendErrors(data)
+    const error = new Error(
+      backendMessage || `Send-result-email failed with status ${response.status}.`
+    )
+    error.status = response.status
+    error.data = data
+    throw error
+  }
+
+  return data
+}

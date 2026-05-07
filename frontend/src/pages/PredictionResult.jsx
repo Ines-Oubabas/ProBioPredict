@@ -1,4 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { sendPredictionResultByEmail } from '../services/predictionApi'
 
 function PredictionResult() {
   const location = useLocation()
@@ -16,6 +18,81 @@ function PredictionResult() {
   const columns = Array.isArray(summary?.columns) ? summary.columns : []
 
   const hasData = Boolean(predictionResponse) && results.length > 0
+
+  const [emailStatus, setEmailStatus] = useState({
+    loading: false,
+    success: false,
+    error: '',
+    message: '',
+  })
+
+  const downloadFilename = useMemo(() => {
+    const date = new Date().toISOString().replace(/[:.]/g, '-')
+    return `probio-predict-result-${date}.json`
+  }, [])
+
+  function handleDownloadResult() {
+    if (!hasData) return
+
+    const payload = {
+      exported_at: new Date().toISOString(),
+      source: 'ProBioPredict',
+      summary,
+      results,
+      message: predictionResponse?.message || '',
+      note: 'Prediction is currently mocked. Real ML model will be integrated later.',
+    }
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    })
+    const url = URL.createObjectURL(blob)
+
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = downloadFilename
+    document.body.appendChild(anchor)
+    anchor.click()
+    document.body.removeChild(anchor)
+
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleSendResultByEmail() {
+    if (!hasData || emailStatus.loading) return
+
+    setEmailStatus({
+      loading: true,
+      success: false,
+      error: '',
+      message: '',
+    })
+
+    try {
+      const response = await sendPredictionResultByEmail({
+        summary,
+        results,
+        submittedFileName,
+        submittedSequenceId,
+      })
+
+      setEmailStatus({
+        loading: false,
+        success: true,
+        error: '',
+        message: response?.message || 'Result email request sent successfully.',
+      })
+    } catch (error) {
+      setEmailStatus({
+        loading: false,
+        success: false,
+        error:
+          error?.message ||
+          'Email sending endpoint is not available yet. Please try again later.',
+        message: '',
+      })
+    }
+  }
 
   return (
     <section className="page-bg-history page-shell">
@@ -73,6 +150,37 @@ function PredictionResult() {
               {predictionResponse?.message ? (
                 <p className="muted" style={{ marginTop: '0.75rem' }}>
                   {predictionResponse.message}
+                </p>
+              ) : null}
+
+              <div className="form-actions" style={{ marginTop: '1rem', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-accent" onClick={handleDownloadResult}>
+                  Download result
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-accent"
+                  onClick={handleSendResultByEmail}
+                  disabled={emailStatus.loading}
+                >
+                  {emailStatus.loading ? 'Sending email...' : 'Send result by email'}
+                </button>
+              </div>
+
+              {emailStatus.success ? (
+                <p className="muted" style={{ marginTop: '0.65rem', color: '#b9f6ca' }}>
+                  {emailStatus.message}
+                </p>
+              ) : null}
+
+              {emailStatus.error ? (
+                <p
+                  style={{ color: '#ffb4b4', marginTop: '0.65rem' }}
+                  role="alert"
+                  aria-live="assertive"
+                >
+                  {emailStatus.error}
                 </p>
               ) : null}
             </article>

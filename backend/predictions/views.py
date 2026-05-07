@@ -7,8 +7,9 @@ import io
 import re
 
 from django.conf import settings
+from django.core.mail import send_mail
 from rest_framework import status
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -243,6 +244,76 @@ class PredictionUploadView(APIView):
                     "model_mode": "mock",
                 },
                 "results": mock_results,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class SendPredictionResultEmailView(APIView):
+    """
+    Authenticated endpoint to send prediction summary by email after result display.
+
+    The recipient is always request.user.email (never provided by client payload).
+    """
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+
+    def post(self, request):
+        payload = request.data if isinstance(request.data, dict) else {}
+
+        summary = payload.get("summary") or {}
+        results = payload.get("results")
+        submitted_file_name = str(payload.get("submittedFileName") or "").strip()
+        submitted_sequence_id = str(payload.get("submittedSequenceId") or "").strip()
+
+        if not isinstance(results, list) or len(results) == 0:
+            return Response(
+                {"detail": "Invalid payload: results must be a non-empty list."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user_email = str(getattr(request.user, "email", "") or "").strip()
+        if not user_email:
+            return Response(
+                {"detail": "No email is configured for the authenticated account."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        rows_received = summary.get("rows_received")
+        model_mode = str(summary.get("model_mode") or "mock").strip() or "mock"
+
+        rows_label = rows_received if isinstance(rows_received, int) else len(results)
+
+        subject = "ProBioPredict - Prediction result (mock mode)"
+        body_lines = [
+            "Project: ProBioPredict",
+            f"Rows processed: {rows_label}",
+            f"Mode: {model_mode}",
+            "Info: prediction is currently mocked.",
+            "Info: the real ML model will be integrated in a future version.",
+        ]
+
+        if submitted_file_name:
+            body_lines.append(f"Submitted file: {submitted_file_name}")
+        if submitted_sequence_id:
+            body_lines.append(f"Sequence ID label: {submitted_sequence_id}")
+
+        body = "\n".join(body_lines)
+
+        send_mail(
+            subject=subject,
+            message=body,
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+            recipient_list=[user_email],
+            fail_silently=False,
+        )
+
+        return Response(
+            {
+                "message": "Prediction result email sent successfully (dev backend mode).",
+                "email_requested": True,
+                "email_sent": True,
             },
             status=status.HTTP_200_OK,
         )
