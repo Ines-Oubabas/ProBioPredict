@@ -7,7 +7,7 @@ function Premium() {
         <header className="premium-head premium-hero">
           <h1 className="section-title">Premium plans</h1>
           <p className="section-subtitle">
-            Start free, validate your workflow, and scale with the right plan when your prediction volume grows.
+            Start free, validate your workflow, and scale with the right plan as your prediction volume grows.
           </p>
           <p className="premium-intro-copy">
             Every user can begin with Free / Starter. The free plan includes up to 5 predictions. Beyond that limit,
@@ -15,19 +15,20 @@ function Premium() {
           </p>
         </header>
 
-        <div className="pricing-grid section-space premium-pricing-grid">
+        <div className="premium-pricing-grid section-space">
           {premiumPlans.map((plan) => {
-            const isPro = plan.name === 'Pro'
-            const badgeLabel = plan.badge || (plan.highlighted ? 'Most popular' : null)
+            const name = plan.name?.toLowerCase() || ''
+            const isPro = name === 'pro'
+            const isStarter = name.includes('starter') || name.includes('free')
+            const isLab = name === 'lab' || name.includes('team')
+
+            const toneClass = isPro ? 'plan-pro' : isStarter ? 'plan-starter' : isLab ? 'plan-lab' : ''
+            const highlightClass = plan.highlighted ? 'plan-highlight' : ''
+            const badgeLabel = plan.badge || (isPro ? 'Most popular' : isStarter ? 'Get started' : 'For teams')
 
             return (
-              <article
-                key={plan.name}
-                className={`card plan-card premium-plan-card ${isPro ? 'plan-pro' : ''} ${
-                  plan.highlighted ? 'plan-highlight' : ''
-                } plan-${plan.tone || ''}`}
-              >
-                {badgeLabel ? <span className="plan-badge">{badgeLabel}</span> : null}
+              <article key={plan.name} className={`premium-plan-card ${toneClass} ${highlightClass}`.trim()}>
+                <span className="plan-badge">{badgeLabel}</span>
 
                 <div className="plan-top">
                   <h3>{plan.name}</h3>
@@ -35,7 +36,7 @@ function Premium() {
                   {plan.description ? <p className="plan-description">{plan.description}</p> : null}
                 </div>
 
-                <ul className="plan-list premium-feature-list">
+                <ul className="premium-feature-list">
                   {plan.bullets.map((item) => (
                     <li key={item}>
                       <span className="feature-check" aria-hidden="true">

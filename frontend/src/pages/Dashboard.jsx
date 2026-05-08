@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { dashboardStats, quickActions, recentHistory, systemStatus } from '../data/mockData'
+import { dashboardStats, recentHistory, systemStatus } from '../data/mockData'
 import { IconBolt, IconChart, IconShield } from '../components/Icons'
 
 function toneClass(tone) {
@@ -8,43 +8,50 @@ function toneClass(tone) {
   return 'tone-pending'
 }
 
+function resultBadgeClass(result) {
+  const normalized = (result || '').toLowerCase()
+  if (normalized.includes('non')) return 'result-status-badge result-status-non'
+  return 'result-status-badge result-status-probiotic'
+}
+
+function parseConfidence(value) {
+  const n = Number(String(value || '').replace('%', '').trim())
+  return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0
+}
+
 function Dashboard() {
+  const latestHistory = recentHistory?.[0] ?? {
+    sequence: 'N/A',
+    result: 'Pending',
+    confidence: '0%',
+    date: '—',
+  }
+
+  const confidenceValue = parseConfidence(latestHistory.confidence)
+
   return (
-    <section className="page-bg-dashboard page-shell">
-      <section className="panel">
-        <h1>Dashboard</h1>
-        <p>Get a fast overview of activity, status, and recent prediction outcomes.</p>
-
-        <div className="kpi-grid section-space">
-          <article className="kpi-card card card-elevated">
-            <IconChart className="icon" />
-            <small>{dashboardStats[0].label}</small>
-            <strong>{dashboardStats[0].value}</strong>
-          </article>
-
-          <article className="kpi-card card card-elevated">
-            <IconBolt className="icon" />
-            <small>{dashboardStats[1].label}</small>
-            <strong>{dashboardStats[1].value}</strong>
-          </article>
-
-          <article className="kpi-card card card-elevated">
-            <IconShield className="icon" />
-            <small>{dashboardStats[2].label}</small>
-            <strong>{dashboardStats[2].value}</strong>
-          </article>
+    <section className="page-bg-dashboard page-shell dashboard-workspace">
+      <header className="panel dashboard-header-premium">
+        <div className="dashboard-header-main">
+          <p className="hero-kicker">Workspace</p>
+          <h1>Dashboard</h1>
+          <p>Monitor activity, review outputs, and launch prediction tasks from one operational biotech workspace.</p>
         </div>
-      </section>
 
-      <section className="panel section-space dashboard-three">
-        <article className="card card-soft">
-          <h3>Quick actions</h3>
-          <ul className="simple-list">
-            {quickActions.map((a) => (
-              <li key={a}>{a}</li>
-            ))}
+        <aside className="dashboard-system-ready">
+          <p className="dashboard-system-ready-title">System ready</p>
+          <ul className="system-ready-list">
+            <li>
+              <span className="status-dot" />
+              Mock pipeline active
+            </li>
+            <li>
+              <span className="status-dot" />
+              Data secured
+            </li>
           </ul>
-          <div className="form-actions">
+
+          <div className="dashboard-header-actions">
             <Link className="btn btn-accent" to="/prediction">
               Start prediction
             </Link>
@@ -52,65 +59,157 @@ function Dashboard() {
               Open history
             </Link>
           </div>
+        </aside>
+      </header>
+
+      <section className="dashboard-stat-strip-premium section-space" aria-label="Workspace metrics">
+        <article className="stat-chip dashboard-kpi-chip">
+          <div className="kpi-icon">
+            <IconChart className="icon" />
+          </div>
+          <div className="kpi-meta">
+            <small>Predictions this month</small>
+            <strong>{dashboardStats?.[0]?.value ?? '0'}</strong>
+            <span>Current usage</span>
+          </div>
         </article>
 
-        <article className="card card-soft">
-          <h3>System status</h3>
-          <ul className="status-list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {systemStatus.map((s) => (
-              <li
-                key={s.key}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem' }}
-              >
-                <span>{s.key}</span>
-                <span className={`status-pill ${toneClass(s.tone)}`}>{s.value}</span>
-              </li>
-            ))}
-          </ul>
+        <article className="stat-chip dashboard-kpi-chip">
+          <div className="kpi-icon">
+            <IconBolt className="icon" />
+          </div>
+          <div className="kpi-meta">
+            <small>Latest classification</small>
+            <strong>{latestHistory.result}</strong>
+            <span>Last prediction</span>
+          </div>
         </article>
 
-        <article className="card card-accent-left">
-          <h3>ML integration status</h3>
-          <p className="status-pill tone-pending">Pending</p>
-          <p>Advanced model connection is planned for the next product milestone.</p>
+        <article className="stat-chip dashboard-kpi-chip">
+          <div className="kpi-icon">
+            <IconShield className="icon" />
+          </div>
+          <div className="kpi-meta">
+            <small>Workspace status</small>
+            <strong>{dashboardStats?.[2]?.value ?? 'Healthy'}</strong>
+            <span>System check</span>
+          </div>
         </article>
       </section>
 
-      <section className="panel section-space dashboard-main-grid">
-        <article className="card card-feature">
-          <h3>Latest prediction</h3>
-          <p className="result-label">L. casei A17</p>
-          <p>
-            Classification: <strong>Probiotic</strong>
-          </p>
-          <p>
-            Confidence: <strong>92%</strong>
-          </p>
-          <Link className="btn btn-accent" to="/prediction-result">
-            View full result
-          </Link>
-        </article>
+      <section className="dashboard-layout section-space">
+        <div className="dashboard-main-col">
+          <article className="panel dashboard-primary-surface dashboard-prediction-card">
+            <div className="dashboard-section-head">
+              <h2>Latest prediction</h2>
+              <span className={resultBadgeClass(latestHistory.result)}>{latestHistory.result}</span>
+            </div>
 
-        <article className="card card-soft">
-          <h3>Recent history</h3>
-          <div className="table-head">
-            <span>Sequence</span>
-            <span>Result</span>
-            <span>Confidence</span>
-            <span>Date</span>
-          </div>
+            <div className="prediction-main-grid">
+              <div className="prediction-main-content">
+                <p className="result-label">{latestHistory.sequence}</p>
 
-          <ul className="table-list">
-            {recentHistory.map((row) => (
-              <li key={`${row.sequence}-${row.date}`}>
-                <span>{row.sequence}</span>
-                <span>{row.result}</span>
-                <span>{row.confidence}</span>
-                <span>{row.date}</span>
-              </li>
-            ))}
-          </ul>
-        </article>
+                <p>
+                  Classification: <strong>{latestHistory.result}</strong>
+                </p>
+                <p>
+                  Confidence: <strong>{latestHistory.confidence}</strong>
+                </p>
+                <p className="muted">Generated on {latestHistory.date}</p>
+
+                <div className="confidence-track" aria-label="Prediction confidence">
+                  <div className="confidence-fill" style={{ width: `${confidenceValue}%` }} />
+                </div>
+
+                <div className="dashboard-prediction-actions">
+                  <Link className="btn btn-ghost" to="/prediction-result">
+                    View latest result
+                  </Link>
+                  <Link className="btn btn-accent" to="/prediction">
+                    Start new prediction
+                  </Link>
+                </div>
+              </div>
+
+              <div className="prediction-score-panel">
+                <small>Confidence score</small>
+                <strong>{latestHistory.confidence}</strong>
+                <p className="muted">Prediction quality indicator from current mock pipeline.</p>
+              </div>
+            </div>
+          </article>
+
+          <article className="panel dashboard-history-premium">
+            <div className="dashboard-section-head">
+              <h2>Recent history</h2>
+              <Link className="btn btn-ghost" to="/history">
+                Open full history
+              </Link>
+            </div>
+
+            <div className="table-head">
+              <span>Sequence</span>
+              <span>Result</span>
+              <span>Confidence</span>
+              <span>Date</span>
+            </div>
+
+            <ul className="table-list">
+              {recentHistory.map((row) => (
+                <li key={`${row.sequence}-${row.date}`}>
+                  <span>{row.sequence}</span>
+                  <span>
+                    <span className={resultBadgeClass(row.result)}>{row.result}</span>
+                  </span>
+                  <span>{row.confidence}</span>
+                  <span>{row.date}</span>
+                </li>
+              ))}
+            </ul>
+          </article>
+        </div>
+
+        <aside className="dashboard-side-col">
+          <article className="panel dashboard-secondary-surface dashboard-quick-actions">
+            <h3>Quick actions</h3>
+            <p className="muted">Shortcuts for your most frequent tasks.</p>
+
+            <div className="dashboard-action-list">
+              <Link className="btn btn-accent" to="/prediction">
+                Start prediction
+              </Link>
+              <Link className="btn btn-ghost" to="/history">
+                Open history
+              </Link>
+              <Link className="btn btn-ghost" to="/prediction-result">
+                View latest result
+              </Link>
+            </div>
+          </article>
+
+          <article className="panel dashboard-secondary-surface dashboard-system">
+            <h3>Workspace status</h3>
+            <p className="muted">Current service health.</p>
+
+            <ul className="status-list dashboard-status-list">
+              {systemStatus.map((s) => (
+                <li key={s.key} className="dashboard-status-row">
+                  <span>{s.key}</span>
+                  <span className={`status-pill ${toneClass(s.tone)}`}>{s.value}</span>
+                </li>
+              ))}
+            </ul>
+          </article>
+
+          <article className="panel dashboard-secondary-surface dashboard-ml-status">
+            <h3>ML integration status</h3>
+            <p className="status-pill tone-pending">Planned milestone</p>
+            <p className="muted">
+              The production ML model will be integrated later. Current outputs rely on a validated mock prediction
+              pipeline for product workflow testing.
+            </p>
+          </article>
+        </aside>
       </section>
     </section>
   )
