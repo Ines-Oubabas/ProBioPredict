@@ -79,44 +79,18 @@ function Register() {
 
   return (
     <section className="auth-bg page-bg-register page-shell auth-panel">
-      <article className="auth-card card">
+      <article className="auth-card card auth-card-hover">
         <h1>Create account</h1>
         <p>Join ProBioPredict and start your prediction workflow in minutes.</p>
 
         {errorMessage ? (
-          <p
-            className="muted"
-            role="alert"
-            aria-live="assertive"
-            style={{
-              marginTop: '0.75rem',
-              marginBottom: '0.75rem',
-              color: '#ffb4b4',
-              background: 'rgba(255, 90, 90, 0.12)',
-              border: '1px solid rgba(255, 90, 90, 0.25)',
-              borderRadius: '10px',
-              padding: '0.6rem 0.75rem',
-            }}
-          >
+          <p className="auth-alert auth-alert-error" role="alert" aria-live="assertive">
             {errorMessage}
           </p>
         ) : null}
 
         {successMessage ? (
-          <p
-            className="muted"
-            role="status"
-            aria-live="polite"
-            style={{
-              marginTop: '0.75rem',
-              marginBottom: '0.75rem',
-              color: '#b8ffd2',
-              background: 'rgba(70, 220, 140, 0.12)',
-              border: '1px solid rgba(70, 220, 140, 0.3)',
-              borderRadius: '10px',
-              padding: '0.6rem 0.75rem',
-            }}
-          >
+          <p className="auth-alert auth-alert-success" role="status" aria-live="polite">
             {successMessage}
           </p>
         ) : null}
@@ -124,15 +98,7 @@ function Register() {
         <form onSubmit={handleSubmit}>
           <div className="field">
             <label htmlFor="register-name">Full name</label>
-            <div
-              className="glass"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.4rem 0.6rem',
-              }}
-            >
+            <div className="glass auth-input-shell">
               <IconUser className="icon" />
               <input
                 id="register-name"
@@ -149,15 +115,7 @@ function Register() {
 
           <div className="field">
             <label htmlFor="register-email">Email</label>
-            <div
-              className="glass"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.4rem 0.6rem',
-              }}
-            >
+            <div className="glass auth-input-shell">
               <IconMail className="icon" />
               <input
                 id="register-email"
@@ -174,15 +132,7 @@ function Register() {
 
           <div className="field">
             <label htmlFor="register-password">Password</label>
-            <div
-              className="glass"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.4rem 0.6rem',
-              }}
-            >
+            <div className="glass auth-input-shell">
               <IconLock className="icon" />
               <input
                 id="register-password"
@@ -199,15 +149,7 @@ function Register() {
 
           <div className="field">
             <label htmlFor="register-password-confirm">Confirm password</label>
-            <div
-              className="glass"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.4rem 0.6rem',
-              }}
-            >
+            <div className="glass auth-input-shell">
               <IconLock className="icon" />
               <input
                 id="register-password-confirm"
@@ -222,16 +164,15 @@ function Register() {
             </div>
           </div>
 
-          <div className="form-actions">
-            <button className="btn btn-accent" type="submit" disabled={isSubmitting}>
+          <div className="form-actions auth-actions">
+            <button className="btn btn-accent auth-btn" type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Creating account...' : 'Create account'}
             </button>
+            <Link className="btn btn-ghost auth-btn" to="/login">
+              Sign in
+            </Link>
           </div>
         </form>
-
-        <p className="muted" style={{ marginTop: '0.8rem' }}>
-          Already registered? <Link to="/login">Sign in</Link>
-        </p>
       </article>
     </section>
   )

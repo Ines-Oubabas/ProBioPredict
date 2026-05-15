@@ -71,44 +71,18 @@ function Login() {
 
   return (
     <section className="auth-bg page-bg-login page-shell auth-panel">
-      <article className="auth-card card">
+      <article className="auth-card card auth-card-hover">
         <h1>Login</h1>
         <p>Sign in to access your predictions and saved history.</p>
 
         {errorMessage ? (
-          <p
-            className="muted"
-            role="alert"
-            aria-live="assertive"
-            style={{
-              marginTop: '0.75rem',
-              marginBottom: '0.75rem',
-              color: '#ffb4b4',
-              background: 'rgba(255, 90, 90, 0.12)',
-              border: '1px solid rgba(255, 90, 90, 0.25)',
-              borderRadius: '10px',
-              padding: '0.6rem 0.75rem',
-            }}
-          >
+          <p className="auth-alert auth-alert-error" role="alert" aria-live="assertive">
             {errorMessage}
           </p>
         ) : null}
 
         {successMessage ? (
-          <p
-            className="muted"
-            role="status"
-            aria-live="polite"
-            style={{
-              marginTop: '0.75rem',
-              marginBottom: '0.75rem',
-              color: '#b8ffd2',
-              background: 'rgba(70, 220, 140, 0.12)',
-              border: '1px solid rgba(70, 220, 140, 0.3)',
-              borderRadius: '10px',
-              padding: '0.6rem 0.75rem',
-            }}
-          >
+          <p className="auth-alert auth-alert-success" role="status" aria-live="polite">
             {successMessage}
           </p>
         ) : null}
@@ -116,15 +90,7 @@ function Login() {
         <form onSubmit={handleSubmit}>
           <div className="field">
             <label htmlFor="login-email">Email</label>
-            <div
-              className="glass"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.4rem 0.6rem',
-              }}
-            >
+            <div className="glass auth-input-shell">
               <IconMail className="icon" />
               <input
                 id="login-email"
@@ -141,15 +107,7 @@ function Login() {
 
           <div className="field">
             <label htmlFor="login-password">Password</label>
-            <div
-              className="glass"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.4rem 0.6rem',
-              }}
-            >
+            <div className="glass auth-input-shell">
               <IconLock className="icon" />
               <input
                 id="login-password"
@@ -164,11 +122,11 @@ function Login() {
             </div>
           </div>
 
-          <div className="form-actions">
-            <button className="btn btn-accent" type="submit" disabled={isSubmitting}>
+          <div className="form-actions auth-actions">
+            <button className="btn btn-accent auth-btn" type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Signing in...' : 'Continue'}
             </button>
-            <Link className="btn btn-ghost" to="/register">
+            <Link className="btn btn-ghost auth-btn" to="/register">
               Create account
             </Link>
           </div>

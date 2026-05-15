@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { submitPredictionCsv } from '../services/predictionApi'
 
 const csvExample = `sequence_id,truncated_dna
@@ -12,6 +12,7 @@ function PredictionForm() {
   const [csvFile, setCsvFile] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [planLimitReached, setPlanLimitReached] = useState(false)
 
   function isCsvFile(file) {
     if (!file) return false
@@ -30,10 +31,12 @@ function PredictionForm() {
     if (!isCsvFile(file)) {
       setCsvFile(null)
       setError('Invalid format. Please upload a .csv file only.')
+      setPlanLimitReached(false)
       return
     }
 
     setError('')
+    setPlanLimitReached(false)
     setCsvFile(file)
   }
 
@@ -43,15 +46,18 @@ function PredictionForm() {
 
     if (!csvFile) {
       setError('A CSV file containing truncated DNA is required.')
+      setPlanLimitReached(false)
       return
     }
 
     if (!isCsvFile(csvFile)) {
       setError('Invalid format. Please upload a .csv file only.')
+      setPlanLimitReached(false)
       return
     }
 
     setError('')
+    setPlanLimitReached(false)
     setLoading(true)
 
     try {
@@ -66,7 +72,15 @@ function PredictionForm() {
         },
       })
     } catch (err) {
-      setError(err?.message || 'Prediction submission failed.')
+      const message = err?.message || 'Prediction submission failed.'
+      const isPlanLimit = message.toLowerCase().includes('free plan limit reached')
+
+      setPlanLimitReached(isPlanLimit)
+      setError(
+        isPlanLimit
+          ? 'You have reached your Free plan limit (3 predictions). Upgrade to Premium to continue uploading CSV files.'
+          : message
+      )
     } finally {
       setLoading(false)
     }
@@ -100,21 +114,10 @@ function PredictionForm() {
               <li>
                 <strong>truncated_dna</strong> must contain only the letters <strong>A, C, G, T</strong>.
               </li>
-              <li>
-                No required field should be empty.
-              </li>
-              <li>
-                The file must respect backend size and row limits.
-              </li>
+              <li>No required field should be empty.</li>
+              <li>The file must respect backend size and row limits.</li>
               <li>
                 After uploading the file, click <strong>Run prediction</strong>.
-              </li>
-              <li>
-                The result will then be shown on the <strong>PredictionResult</strong> page.
-              </li>
-              <li>
-                <strong>Download result</strong> and <strong>Send result by email</strong> actions are available
-                after results are displayed.
               </li>
             </ul>
 
@@ -155,9 +158,16 @@ function PredictionForm() {
             ) : null}
 
             {error ? (
-              <p style={{ color: '#ffb4b4', margin: '0.4rem 0 0' }} role="alert" aria-live="assertive">
-                {error}
-              </p>
+              <div className={planLimitReached ? 'limit-alert' : ''} role="alert" aria-live="assertive">
+                <p style={{ color: '#ffb4b4', margin: '0.4rem 0 0' }}>{error}</p>
+                {planLimitReached ? (
+                  <div className="form-actions" style={{ marginTop: '0.55rem' }}>
+                    <Link to="/premium" className="btn btn-accent">
+                      View Premium plan
+                    </Link>
+                  </div>
+                ) : null}
+              </div>
             ) : null}
 
             <div className="form-actions">

@@ -86,9 +86,7 @@ function PredictionResult() {
       setEmailStatus({
         loading: false,
         success: false,
-        error:
-          error?.message ||
-          'Email sending endpoint is not available yet. Please try again later.',
+        error: error?.message || 'Email sending endpoint is not available yet. Please try again later.',
         message: '',
       })
     }
@@ -168,18 +166,18 @@ function PredictionResult() {
                 </button>
               </div>
 
+              <p className="muted" style={{ marginTop: '0.65rem' }}>
+                Email note: in development, backend may run in console-email mode (no real mailbox delivery).
+              </p>
+
               {emailStatus.success ? (
-                <p className="muted" style={{ marginTop: '0.65rem', color: '#b9f6ca' }}>
+                <p className="muted" style={{ marginTop: '0.35rem', color: '#b9f6ca' }}>
                   {emailStatus.message}
                 </p>
               ) : null}
 
               {emailStatus.error ? (
-                <p
-                  style={{ color: '#ffb4b4', marginTop: '0.65rem' }}
-                  role="alert"
-                  aria-live="assertive"
-                >
+                <p style={{ color: '#ffb4b4', marginTop: '0.35rem' }} role="alert" aria-live="assertive">
                   {emailStatus.error}
                 </p>
               ) : null}
@@ -187,71 +185,25 @@ function PredictionResult() {
 
             <article className="card card-feature">
               <h3>Returned results</h3>
-
               <div style={{ overflowX: 'auto' }}>
-                <table
-                  style={{
-                    width: '100%',
-                    borderCollapse: 'collapse',
-                    marginTop: '0.6rem',
-                  }}
-                >
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '0.6rem' }}>
                   <thead>
                     <tr>
-                      <th
-                        style={{
-                          textAlign: 'left',
-                          padding: '0.55rem',
-                          borderBottom: '1px solid rgba(255,255,255,0.16)',
-                        }}
-                      >
-                        Sequence ID
-                      </th>
-                      <th
-                        style={{
-                          textAlign: 'left',
-                          padding: '0.55rem',
-                          borderBottom: '1px solid rgba(255,255,255,0.16)',
-                        }}
-                      >
-                        Predicted class
-                      </th>
-                      <th
-                        style={{
-                          textAlign: 'left',
-                          padding: '0.55rem',
-                          borderBottom: '1px solid rgba(255,255,255,0.16)',
-                        }}
-                      >
-                        Confidence
-                      </th>
+                      <th style={{ textAlign: 'left', padding: '0.55rem', borderBottom: '1px solid rgba(255,255,255,0.16)' }}>Sequence ID</th>
+                      <th style={{ textAlign: 'left', padding: '0.55rem', borderBottom: '1px solid rgba(255,255,255,0.16)' }}>Predicted class</th>
+                      <th style={{ textAlign: 'left', padding: '0.55rem', borderBottom: '1px solid rgba(255,255,255,0.16)' }}>Confidence</th>
                     </tr>
                   </thead>
                   <tbody>
                     {results.map((item, index) => (
                       <tr key={`${item.sequence_id || 'sequence'}-${index}`}>
-                        <td
-                          style={{
-                            padding: '0.55rem',
-                            borderBottom: '1px solid rgba(255,255,255,0.08)',
-                          }}
-                        >
+                        <td style={{ padding: '0.55rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                           {item.sequence_id || '—'}
                         </td>
-                        <td
-                          style={{
-                            padding: '0.55rem',
-                            borderBottom: '1px solid rgba(255,255,255,0.08)',
-                          }}
-                        >
+                        <td style={{ padding: '0.55rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                           {item.predicted_class || '—'}
                         </td>
-                        <td
-                          style={{
-                            padding: '0.55rem',
-                            borderBottom: '1px solid rgba(255,255,255,0.08)',
-                          }}
-                        >
+                        <td style={{ padding: '0.55rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                           {typeof item.confidence === 'number' ? item.confidence.toFixed(2) : '—'}
                         </td>
                       </tr>
