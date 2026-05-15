@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import { isAuthenticated } from './services/authApi'
+import Contact from './pages/Contact'
 import Dashboard from './pages/Dashboard'
 import History from './pages/History'
 import Home from './pages/Home'
@@ -13,10 +14,7 @@ import Register from './pages/Register'
 import './App.css'
 
 function PublicOnlyRoute({ children }) {
-  if (isAuthenticated()) {
-    return <Navigate to="/dashboard" replace />
-  }
-
+  if (isAuthenticated()) return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -24,27 +22,17 @@ function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        {/* Public routes */}
         <Route path="/" element={<Home />} />
         <Route path="/premium" element={<Premium />} />
+        <Route path="/contact" element={<Contact />} />
         <Route
           path="/login"
-          element={(
-            <PublicOnlyRoute>
-              <Login />
-            </PublicOnlyRoute>
-          )}
+          element={<PublicOnlyRoute><Login /></PublicOnlyRoute>}
         />
         <Route
           path="/register"
-          element={(
-            <PublicOnlyRoute>
-              <Register />
-            </PublicOnlyRoute>
-          )}
+          element={<PublicOnlyRoute><Register /></PublicOnlyRoute>}
         />
-
-        {/* Private routes */}
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/prediction" element={<PredictionForm />} />

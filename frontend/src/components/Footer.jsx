@@ -14,6 +14,7 @@ function Footer() {
         <Link to="/prediction">Prediction</Link>
         <Link to="/history">History</Link>
         <Link to="/premium">Premium</Link>
+        <Link to="/contact">Contact</Link>
       </nav>
 
       <p className="footer-copy">© 2026 ProBioPredict · Product prototype</p>

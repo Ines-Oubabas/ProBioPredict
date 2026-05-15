@@ -1,84 +1,47 @@
-// frontend/src/pages/History.jsx
-
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { fetchPredictionHistory } from '../services/predictionApi'
 
 const FILTERS = ['All', 'Probiotic', 'Non-probiotic']
 
-function toHistoryRows(predictions) {
-  const rows = []
-
-  predictions.forEach((prediction) => {
-    const dateLabel = prediction?.submitted_at
-      ? new Date(prediction.submitted_at).toISOString().slice(0, 10)
-      : '—'
-
-    const results = Array.isArray(prediction?.results) ? prediction.results : []
-
-    results.forEach((result, index) => {
-      const predictedClass = String(result?.predicted_class || '').toLowerCase()
-      const isProbiotic = predictedClass.includes('safe') || predictedClass.includes('probiotic')
-
-      rows.push({
-        id: `${prediction.id}-${result.id || index}`,
-        sequence: result?.sequence_id || '—',
-        result: isProbiotic ? 'Probiotic' : 'Non-probiotic',
-        confidence:
-          typeof result?.confidence === 'number'
-            ? `${Math.round(result.confidence * 100)}%`
-            : '—',
-        date: dateLabel,
-      })
-    })
-  })
-
-  return rows
+function normalizeLabel(predictedClass) {
+  const lower = String(predictedClass || '').toLowerCase()
+  return lower.includes('safe') || lower.includes('probiotic') ? 'Probiotic' : 'Non-probiotic'
 }
 
 function History() {
   const [activeFilter, setActiveFilter] = useState('All')
-  const [historyRows, setHistoryRows] = useState([])
+  const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    let isMounted = true
-
-    async function loadHistory() {
+    let mounted = true
+    async function load() {
       setLoading(true)
       setError('')
-
       try {
         const response = await fetchPredictionHistory()
         const predictions = Array.isArray(response?.predictions) ? response.predictions : []
-        const mapped = toHistoryRows(predictions)
-
-        if (isMounted) {
-          setHistoryRows(mapped)
-        }
-      } catch (err) {
-        if (isMounted) {
-          setError(err?.message || 'Failed to load prediction history.')
-        }
+        if (mounted) setGroups(predictions)
+      } catch (e) {
+        if (mounted) setError(e?.message || 'Failed to load prediction history.')
       } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
+        if (mounted) setLoading(false)
       }
     }
-
-    loadHistory()
-
-    return () => {
-      isMounted = false
-    }
+    load()
+    return () => { mounted = false }
   }, [])
 
-  const rows = useMemo(() => {
-    if (activeFilter === 'All') return historyRows
-    return historyRows.filter((r) => r.result === activeFilter)
-  }, [activeFilter, historyRows])
+  const filteredGroups = useMemo(() => {
+    if (activeFilter === 'All') return groups
+    return groups
+      .map((prediction) => ({
+        ...prediction,
+        results: (prediction.results || []).filter((r) => normalizeLabel(r.predicted_class) === activeFilter),
+      }))
+      .filter((p) => p.results.length > 0)
+  }, [groups, activeFilter])
 
   return (
     <section className="page-shell">
@@ -99,48 +62,39 @@ function History() {
           ))}
         </div>
 
-        <article className="card card-soft section-space">
-          <div className="table-head">
-            <span>Sequence</span>
-            <span>Result</span>
-            <span>Confidence</span>
-            <span>Date</span>
-            <span>Action</span>
-          </div>
+        {loading ? <p className="muted">Loading history...</p> : null}
+        {error ? <p role="alert" style={{ color: '#ffb4b4' }}>{error}</p> : null}
 
-          {loading ? <p className="muted">Loading history...</p> : null}
-          {error ? (
-            <p style={{ color: '#ffb4b4', marginTop: '0.5rem' }} role="alert" aria-live="assertive">
-              {error}
+        {!loading && !error && filteredGroups.length === 0 ? (
+          <p className="muted">No predictions found yet. Submit a CSV file to start building your history.</p>
+        ) : null}
+
+        {!loading && !error && filteredGroups.map((prediction) => (
+          <article key={prediction.id} className="card card-soft section-space">
+            <p><strong>Prediction #{prediction.id}</strong> · {prediction.file_name}</p>
+            <p className="muted">
+              {new Date(prediction.submitted_at).toISOString().slice(0, 10)} · {prediction.row_count} rows · {prediction.status}
             </p>
-          ) : null}
 
-          {!loading && !error && rows.length === 0 ? (
-            <p className="muted">No predictions found yet. Submit a CSV file to start building your history.</p>
-          ) : null}
-
-          {!loading && !error && rows.length > 0 ? (
             <ul className="table-list">
-              {rows.map((row) => (
-                <li key={row.id}>
-                  <span>{row.sequence}</span>
-                  <span>
-                    <span className={`badge-pill ${row.result === 'Probiotic' ? 'badge-probiotic' : 'badge-non'}`}>
-                      {row.result}
+              {prediction.results.map((result) => {
+                const label = normalizeLabel(result.predicted_class)
+                return (
+                  <li key={result.id}>
+                    <span>{result.sequence_id}</span>
+                    <span>
+                      <span className={`badge-pill ${label === 'Probiotic' ? 'badge-probiotic' : 'badge-non'}`}>
+                        {label}
+                      </span>
                     </span>
-                  </span>
-                  <span>{row.confidence}</span>
-                  <span>{row.date}</span>
-                  <span>
-                    <Link className="btn btn-ghost" to="/prediction-result">
-                      View details
-                    </Link>
-                  </span>
-                </li>
-              ))}
+                    <span>{`${Math.round((result.confidence || 0) * 100)}%`}</span>
+                    <span>{new Date(prediction.submitted_at).toISOString().slice(0, 10)}</span>
+                  </li>
+                )
+              })}
             </ul>
-          ) : null}
-        </article>
+          </article>
+        ))}
       </section>
     </section>
   )

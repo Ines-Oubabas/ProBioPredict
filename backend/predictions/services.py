@@ -3,25 +3,16 @@
 """
 Inference service abstraction.
 
-For now this module returns mocked predictions.
-Later, replace run_inference implementation with real ML inference logic
-without changing the API view structure.
+Keep this contract stable:
+- input: list[dict] rows
+- output: list[dict] normalized inference results
+
+When the real ML model is ready, replace internals of run_inference()
+(or delegate to a dedicated module) without changing API views.
 """
 
 
-def run_inference(rows):
-    """
-    rows: list[dict] with at least:
-      - sequence_id
-      - truncated_dna
-
-    Returns:
-      list[dict] with:
-      - sequence_id
-      - predicted_class
-      - confidence
-      - raw_output (optional)
-    """
+def _mock_inference(rows):
     return [
         {
             "sequence_id": item["sequence_id"],
@@ -34,3 +25,14 @@ def run_inference(rows):
         }
         for item in rows
     ]
+
+
+def run_inference(rows):
+    """
+    Public inference entrypoint used by views.
+    Future real model should be wired here.
+    """
+    # Future switch example:
+    # from .services_inference import run_real_inference
+    # return run_real_inference(rows)
+    return _mock_inference(rows)

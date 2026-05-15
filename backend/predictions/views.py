@@ -1,6 +1,6 @@
 # backend/predictions/views.py
 
-"""Secure prediction upload API (mocked prediction, no ML model integration yet)."""
+"""Secure prediction APIs (mocked inference for now, production-ready structure)."""
 
 from __future__ import annotations
 
@@ -23,8 +23,6 @@ from .services import run_inference
 
 
 DNA_PATTERN = re.compile(r"^[ACGT]+$")
-
-# Cells starting with these characters can trigger formula execution in spreadsheet tools.
 CSV_INJECTION_PREFIXES = ("=", "+", "-", "@")
 
 DEFAULT_ALLOWED_EXTENSIONS = [".csv"]
@@ -41,26 +39,23 @@ DEFAULT_FREE_PLAN_LIMIT = 3
 
 
 def _normalize_columns(values):
-    """Normalize CSV header names for robust comparison."""
     return [str(v).strip().lower() for v in values if str(v).strip()]
 
 
+def _map_result_label(predicted_class: str) -> str:
+    normalized = str(predicted_class or "").strip().lower()
+    if "safe" in normalized or "probiotic" in normalized:
+        return "Probiotic"
+    return "Non-probiotic"
+
+
 class PredictionUploadView(APIView):
-    """
-    Authenticated CSV upload endpoint with strict validation.
-
-    This endpoint keeps prediction result mocked for now (no ML integration here).
-    """
-
     permission_classes = [IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "prediction_upload"
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
-        # ----------------------------------------------------------------------
-        # 0) Free plan limit check (all users are Free by default for now)
-        # ----------------------------------------------------------------------
         free_limit = int(getattr(settings, "PREDICTION_FREE_PLAN_LIMIT", DEFAULT_FREE_PLAN_LIMIT))
         user_prediction_count = Prediction.objects.filter(user=request.user).count()
         if user_prediction_count >= free_limit:
@@ -75,30 +70,19 @@ class PredictionUploadView(APIView):
             )
 
         dna_file = request.FILES.get("dna_file")
-
         if not dna_file:
             return Response(
                 {"detail": "Missing required file field: dna_file."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ----------------------------------------------------------------------
-        # 1) File size validation
-        # ----------------------------------------------------------------------
         max_bytes = int(getattr(settings, "PREDICTION_UPLOAD_MAX_BYTES", DEFAULT_MAX_BYTES))
         if dna_file.size > max_bytes:
             return Response(
-                {
-                    "detail": (
-                        f"File too large. Maximum allowed size is {max_bytes} bytes."
-                    )
-                },
+                {"detail": f"File too large. Maximum allowed size is {max_bytes} bytes."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ----------------------------------------------------------------------
-        # 2) Extension validation (.csv only)
-        # ----------------------------------------------------------------------
         allowed_extensions = getattr(
             settings,
             "PREDICTION_UPLOAD_ALLOWED_EXTENSIONS",
@@ -112,9 +96,6 @@ class PredictionUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ----------------------------------------------------------------------
-        # 3) MIME validation
-        # ----------------------------------------------------------------------
         allowed_mime_types = {
             str(v).strip().lower()
             for v in getattr(
@@ -127,18 +108,10 @@ class PredictionUploadView(APIView):
         incoming_mime = str(getattr(dna_file, "content_type", "") or "").strip().lower()
         if incoming_mime and incoming_mime not in allowed_mime_types:
             return Response(
-                {
-                    "detail": (
-                        "Invalid MIME type. Allowed types: "
-                        + ", ".join(sorted(allowed_mime_types))
-                    )
-                },
+                {"detail": "Invalid MIME type. Allowed types: " + ", ".join(sorted(allowed_mime_types))},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ----------------------------------------------------------------------
-        # 4) Decode and parse CSV safely
-        # ----------------------------------------------------------------------
         try:
             decoded = dna_file.read().decode("utf-8-sig")
         except UnicodeDecodeError:
@@ -156,9 +129,6 @@ class PredictionUploadView(APIView):
         stream = io.StringIO(decoded)
         reader = csv.DictReader(stream)
 
-        # ----------------------------------------------------------------------
-        # 5) Header/column validation
-        # ----------------------------------------------------------------------
         expected_columns = _normalize_columns(
             getattr(
                 settings,
@@ -167,25 +137,15 @@ class PredictionUploadView(APIView):
             )
         )
         received_columns = _normalize_columns(reader.fieldnames or [])
-
         if received_columns != expected_columns:
             return Response(
-                {
-                    "detail": (
-                        "Invalid CSV columns. Expected exactly: "
-                        + ", ".join(expected_columns)
-                    )
-                },
+                {"detail": "Invalid CSV columns. Expected exactly: " + ", ".join(expected_columns)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ----------------------------------------------------------------------
-        # 6) Row validation: max rows, DNA chars, CSV injection
-        # ----------------------------------------------------------------------
         max_rows = int(getattr(settings, "PREDICTION_UPLOAD_MAX_ROWS", DEFAULT_MAX_ROWS))
         validated_rows = []
-
-        for index, row in enumerate(reader, start=2):  # line 1 is header
+        for index, row in enumerate(reader, start=2):
             if len(validated_rows) >= max_rows:
                 return Response(
                     {"detail": f"Too many rows. Maximum allowed is {max_rows}."},
@@ -200,14 +160,12 @@ class PredictionUploadView(APIView):
                     {"detail": f"Row {index}: sequence_id is required."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
             if not truncated_dna:
                 return Response(
                     {"detail": f"Row {index}: truncated_dna is required."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # CSV injection guard (for downstream export/open in spreadsheet software)
             if sequence_id.startswith(CSV_INJECTION_PREFIXES) or truncated_dna.startswith(
                 CSV_INJECTION_PREFIXES
             ):
@@ -221,7 +179,6 @@ class PredictionUploadView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # DNA content validation: only A/C/G/T
             if not DNA_PATTERN.fullmatch(truncated_dna):
                 return Response(
                     {
@@ -246,9 +203,6 @@ class PredictionUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ----------------------------------------------------------------------
-        # 7) Create prediction + run inference service + persist results
-        # ----------------------------------------------------------------------
         with transaction.atomic():
             prediction = Prediction.objects.create(
                 user=request.user,
@@ -281,10 +235,7 @@ class PredictionUploadView(APIView):
                 prediction.save(update_fields=["status"])
                 raise
 
-        # ----------------------------------------------------------------------
-        # 8) Response (stable schema for frontend integration)
-        # ----------------------------------------------------------------------
-        mock_results = [
+        results = [
             {
                 "sequence_id": item["sequence_id"],
                 "predicted_class": item["predicted_class"],
@@ -302,15 +253,13 @@ class PredictionUploadView(APIView):
                     "model_mode": "mock",
                     "prediction_id": prediction.id,
                 },
-                "results": mock_results,
+                "results": results,
             },
             status=status.HTTP_200_OK,
         )
 
 
 class PredictionHistoryView(APIView):
-    """Authenticated endpoint to return prediction history for the connected user."""
-
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -346,13 +295,75 @@ class PredictionHistoryView(APIView):
         return Response({"count": len(payload), "predictions": payload}, status=status.HTTP_200_OK)
 
 
+class PredictionDashboardSummaryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        free_limit = int(getattr(settings, "PREDICTION_FREE_PLAN_LIMIT", DEFAULT_FREE_PLAN_LIMIT))
+        predictions_qs = (
+            Prediction.objects.filter(user=request.user)
+            .prefetch_related("results")
+            .order_by("-submitted_at")
+        )
+
+        predictions = list(predictions_qs)
+        used = len(predictions)
+        remaining = max(free_limit - used, 0)
+
+        latest_prediction = predictions[0] if predictions else None
+        latest_result = latest_prediction.results.all()[0] if latest_prediction and latest_prediction.results.exists() else None
+
+        recent_items = []
+        for prediction in predictions[:5]:
+            for result in prediction.results.all():
+                recent_items.append(
+                    {
+                        "prediction_id": prediction.id,
+                        "file_name": prediction.file_name,
+                        "submitted_at": prediction.submitted_at,
+                        "status": prediction.status,
+                        "sequence_id": result.sequence_id,
+                        "predicted_class": result.predicted_class,
+                        "result_label": _map_result_label(result.predicted_class),
+                        "confidence": result.confidence,
+                    }
+                )
+
+        response_payload = {
+            "plan": {
+                "name": "Free",
+                "limit": free_limit,
+                "used": used,
+                "remaining": remaining,
+            },
+            "latest_prediction": None,
+            "latest_result": None,
+            "recent_history": recent_items[:5],
+        }
+
+        if latest_prediction:
+            response_payload["latest_prediction"] = {
+                "id": latest_prediction.id,
+                "file_name": latest_prediction.file_name,
+                "status": latest_prediction.status,
+                "submitted_at": latest_prediction.submitted_at,
+                "model_mode": latest_prediction.model_mode,
+                "row_count": latest_prediction.row_count,
+            }
+
+        if latest_result:
+            response_payload["latest_result"] = {
+                "prediction_id": latest_prediction.id,
+                "sequence_id": latest_result.sequence_id,
+                "predicted_class": latest_result.predicted_class,
+                "result_label": _map_result_label(latest_result.predicted_class),
+                "confidence": latest_result.confidence,
+            }
+
+        return Response(response_payload, status=status.HTTP_200_OK)
+
+
 class SendPredictionResultEmailView(APIView):
-    """
-    Authenticated endpoint to send prediction summary by email after result display.
-
-    The recipient is always request.user.email (never provided by client payload).
-    """
-
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser]
 
@@ -379,7 +390,6 @@ class SendPredictionResultEmailView(APIView):
 
         rows_received = summary.get("rows_received")
         model_mode = str(summary.get("model_mode") or "mock").strip() or "mock"
-
         rows_label = rows_received if isinstance(rows_received, int) else len(results)
 
         subject = "ProBioPredict - Prediction result (mock mode)"
@@ -390,17 +400,14 @@ class SendPredictionResultEmailView(APIView):
             "Info: prediction is currently mocked.",
             "Info: the real ML model will be integrated in a future version.",
         ]
-
         if submitted_file_name:
             body_lines.append(f"Submitted file: {submitted_file_name}")
         if submitted_sequence_id:
             body_lines.append(f"Sequence ID label: {submitted_sequence_id}")
 
-        body = "\n".join(body_lines)
-
         send_mail(
             subject=subject,
-            message=body,
+            message="\n".join(body_lines),
             from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
             recipient_list=[user_email],
             fail_silently=False,
