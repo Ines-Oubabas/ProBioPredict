@@ -1,3 +1,5 @@
+// frontend/src/services/predictionApi.js
+
 import { getAccessToken } from './authApi'
 
 const API_BASE_URL = (
@@ -71,15 +73,23 @@ async function parseResponse(response) {
   }
 }
 
+function getAuthHeader() {
+  const accessToken = getAccessToken()
+  if (!accessToken) {
+    throw new Error('You must be logged in to perform this action.')
+  }
+
+  return {
+    Authorization: `Bearer ${accessToken}`,
+  }
+}
+
 export async function uploadPredictionCsv({ csvFile, sequenceId = '' }) {
   if (!csvFile) {
     throw new Error('A CSV file is required.')
   }
 
-  const accessToken = getAccessToken()
-  if (!accessToken) {
-    throw new Error('You must be logged in to submit a prediction file.')
-  }
+  const headers = getAuthHeader()
 
   const formData = new FormData()
   formData.append('dna_file', csvFile)
@@ -91,9 +101,7 @@ export async function uploadPredictionCsv({ csvFile, sequenceId = '' }) {
 
   const response = await fetch(`${API_BASE_URL}/predictions/upload/`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers,
     body: formData,
   })
 
@@ -103,6 +111,29 @@ export async function uploadPredictionCsv({ csvFile, sequenceId = '' }) {
     const backendMessage = cleanBackendErrors(data)
     const error = new Error(
       backendMessage || `Prediction upload failed with status ${response.status}.`
+    )
+    error.status = response.status
+    error.data = data
+    throw error
+  }
+
+  return data
+}
+
+export async function fetchPredictionHistory() {
+  const headers = getAuthHeader()
+
+  const response = await fetch(`${API_BASE_URL}/predictions/history/`, {
+    method: 'GET',
+    headers,
+  })
+
+  const data = await parseResponse(response)
+
+  if (!response.ok) {
+    const backendMessage = cleanBackendErrors(data)
+    const error = new Error(
+      backendMessage || `History request failed with status ${response.status}.`
     )
     error.status = response.status
     error.data = data
@@ -126,9 +157,9 @@ export async function sendPredictionResultByEmail({
   submittedFileName = null,
   submittedSequenceId = null,
 }) {
-  const accessToken = getAccessToken()
-  if (!accessToken) {
-    throw new Error('You must be logged in to send prediction results by email.')
+  const headers = {
+    ...getAuthHeader(),
+    'Content-Type': 'application/json',
   }
 
   const payload = {
@@ -140,10 +171,7 @@ export async function sendPredictionResultByEmail({
 
   const response = await fetch(`${API_BASE_URL}/predictions/send-result-email/`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(payload),
   })
 

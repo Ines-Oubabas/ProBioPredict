@@ -1,3 +1,5 @@
+// frontend/src/data/mockData.js
+
 export const heroIndicators = ['Private workspace', 'Clear results', 'Secure workflow']
 
 export const whyProBioPredict = [
@@ -59,10 +61,10 @@ export const premiumPlans = [
     description: 'Perfect to explore the platform before scaling your usage.',
     bullets: [
       'Free access for every user',
-      'Up to 5 predictions maximum',
+      'Up to 3 predictions maximum',
       'Basic prediction history',
       'Simple manual export',
-      'Upgrade required after 5 predictions',
+      'Upgrade required after 3 predictions',
     ],
     cta: 'Start for free',
     tone: 'starter',

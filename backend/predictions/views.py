@@ -1,3 +1,5 @@
+# backend/predictions/views.py
+
 """Secure prediction upload API (mocked prediction, no ML model integration yet)."""
 
 from __future__ import annotations
@@ -8,12 +10,16 @@ import re
 
 from django.conf import settings
 from django.core.mail import send_mail
+from django.db import transaction
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+
+from .models import Prediction, PredictionResult
+from .services import run_inference
 
 
 DNA_PATTERN = re.compile(r"^[ACGT]+$")
@@ -31,6 +37,7 @@ DEFAULT_ALLOWED_MIME_TYPES = [
 DEFAULT_EXPECTED_COLUMNS = ["sequence_id", "truncated_dna"]
 DEFAULT_MAX_BYTES = 512 * 1024
 DEFAULT_MAX_ROWS = 5000
+DEFAULT_FREE_PLAN_LIMIT = 3
 
 
 def _normalize_columns(values):
@@ -51,6 +58,22 @@ class PredictionUploadView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
+        # ----------------------------------------------------------------------
+        # 0) Free plan limit check (all users are Free by default for now)
+        # ----------------------------------------------------------------------
+        free_limit = int(getattr(settings, "PREDICTION_FREE_PLAN_LIMIT", DEFAULT_FREE_PLAN_LIMIT))
+        user_prediction_count = Prediction.objects.filter(user=request.user).count()
+        if user_prediction_count >= free_limit:
+            return Response(
+                {
+                    "detail": (
+                        f"Free plan limit reached: maximum {free_limit} predictions. "
+                        "Please upgrade your plan to continue."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         dna_file = request.FILES.get("dna_file")
 
         if not dna_file:
@@ -224,15 +247,50 @@ class PredictionUploadView(APIView):
             )
 
         # ----------------------------------------------------------------------
-        # 7) Mock prediction response (stable schema for frontend integration)
+        # 7) Create prediction + run inference service + persist results
+        # ----------------------------------------------------------------------
+        with transaction.atomic():
+            prediction = Prediction.objects.create(
+                user=request.user,
+                file_name=filename or "uploaded.csv",
+                status=Prediction.STATUS_PENDING,
+                model_mode=Prediction.MODEL_MODE_MOCK,
+                row_count=len(validated_rows),
+            )
+
+            try:
+                inference_results = run_inference(validated_rows)
+
+                result_instances = []
+                for item in inference_results:
+                    result_instances.append(
+                        PredictionResult(
+                            prediction=prediction,
+                            sequence_id=str(item.get("sequence_id") or "").strip(),
+                            predicted_class=str(item.get("predicted_class") or "unknown").strip(),
+                            confidence=float(item.get("confidence", 0.0)),
+                            raw_output=item.get("raw_output"),
+                        )
+                    )
+
+                PredictionResult.objects.bulk_create(result_instances)
+                prediction.status = Prediction.STATUS_COMPLETED
+                prediction.save(update_fields=["status"])
+            except Exception:
+                prediction.status = Prediction.STATUS_FAILED
+                prediction.save(update_fields=["status"])
+                raise
+
+        # ----------------------------------------------------------------------
+        # 8) Response (stable schema for frontend integration)
         # ----------------------------------------------------------------------
         mock_results = [
             {
                 "sequence_id": item["sequence_id"],
-                "predicted_class": "mock_safe",
-                "confidence": 0.95,
+                "predicted_class": item["predicted_class"],
+                "confidence": item["confidence"],
             }
-            for item in validated_rows
+            for item in inference_results
         ]
 
         return Response(
@@ -242,11 +300,50 @@ class PredictionUploadView(APIView):
                     "rows_received": len(validated_rows),
                     "columns": expected_columns,
                     "model_mode": "mock",
+                    "prediction_id": prediction.id,
                 },
                 "results": mock_results,
             },
             status=status.HTTP_200_OK,
         )
+
+
+class PredictionHistoryView(APIView):
+    """Authenticated endpoint to return prediction history for the connected user."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        predictions = (
+            Prediction.objects.filter(user=request.user)
+            .prefetch_related("results")
+            .order_by("-submitted_at")
+        )
+
+        payload = []
+        for prediction in predictions:
+            payload.append(
+                {
+                    "id": prediction.id,
+                    "file_name": prediction.file_name,
+                    "status": prediction.status,
+                    "submitted_at": prediction.submitted_at,
+                    "model_mode": prediction.model_mode,
+                    "row_count": prediction.row_count,
+                    "results": [
+                        {
+                            "id": result.id,
+                            "sequence_id": result.sequence_id,
+                            "predicted_class": result.predicted_class,
+                            "confidence": result.confidence,
+                            "created_at": result.created_at,
+                        }
+                        for result in prediction.results.all()
+                    ],
+                }
+            )
+
+        return Response({"count": len(payload), "predictions": payload}, status=status.HTTP_200_OK)
 
 
 class SendPredictionResultEmailView(APIView):

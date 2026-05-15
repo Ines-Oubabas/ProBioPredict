@@ -1,3 +1,5 @@
+// frontend/src/pages/Premium.jsx
+
 import { premiumPlans } from '../data/mockData'
 
 function Premium() {
@@ -10,7 +12,7 @@ function Premium() {
             Start free, validate your workflow, and scale with the right plan as your prediction volume grows.
           </p>
           <p className="premium-intro-copy">
-            Every user can begin with Free / Starter. The free plan includes up to 5 predictions. Beyond that limit,
+            Every user can begin with Free / Starter. The free plan includes up to 3 predictions. Beyond that limit,
             upgrading to a paid plan is required.
           </p>
         </header>
