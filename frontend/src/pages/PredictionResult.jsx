@@ -76,11 +76,17 @@ function PredictionResult() {
         submittedSequenceId,
       })
 
+      const deliveryMode = response?.delivery_mode
+      const finalMessage =
+        deliveryMode === 'console'
+          ? 'Email generated in backend console mode. Open backend terminal to view the message output.'
+          : response?.message || 'Prediction result email sent successfully.'
+
       setEmailStatus({
         loading: false,
         success: true,
         error: '',
-        message: response?.message || 'Result email request sent successfully.',
+        message: finalMessage,
       })
     } catch (error) {
       setEmailStatus({
@@ -167,7 +173,8 @@ function PredictionResult() {
               </div>
 
               <p className="muted" style={{ marginTop: '0.65rem' }}>
-                Email note: in development, backend may run in console-email mode (no real mailbox delivery).
+                Email note: if backend uses console mode, email content is printed in backend logs. With SMTP configured,
+                it is delivered to your account email.
               </p>
 
               {emailStatus.success ? (

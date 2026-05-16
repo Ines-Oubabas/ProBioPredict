@@ -41,6 +41,7 @@ export async function uploadPredictionCsv({ csvFile }) {
   return data
 }
 
+/* IMPORTANT: garder cet export */
 export async function submitPredictionCsv(payload) {
   return uploadPredictionCsv(payload)
 }
@@ -52,6 +53,27 @@ export async function fetchPredictionHistory() {
   })
   const data = await parseResponse(response)
   if (!response.ok) throw errorFromResponse(response.status, data, 'History request failed.')
+  return data
+}
+
+export async function pinPrediction(predictionId, isPinned) {
+  const response = await fetch(`${API_BASE_URL}/predictions/${predictionId}/pin/`, {
+    method: 'PATCH',
+    headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ is_pinned: Boolean(isPinned) }),
+  })
+  const data = await parseResponse(response)
+  if (!response.ok) throw errorFromResponse(response.status, data, 'Pin action failed.')
+  return data
+}
+
+export async function deletePrediction(predictionId) {
+  const response = await fetch(`${API_BASE_URL}/predictions/${predictionId}/delete/`, {
+    method: 'DELETE',
+    headers: getAuthHeader(),
+  })
+  const data = await parseResponse(response)
+  if (!response.ok) throw errorFromResponse(response.status, data, 'Delete action failed.')
   return data
 }
 

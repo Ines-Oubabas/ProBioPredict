@@ -11,6 +11,7 @@ import re
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -266,7 +267,7 @@ class PredictionHistoryView(APIView):
         predictions = (
             Prediction.objects.filter(user=request.user)
             .prefetch_related("results")
-            .order_by("-submitted_at")
+            .order_by("-is_pinned", "-submitted_at")
         )
 
         payload = []
@@ -274,11 +275,13 @@ class PredictionHistoryView(APIView):
             payload.append(
                 {
                     "id": prediction.id,
+                    "display_label": f"Prediction #{prediction.id}",
                     "file_name": prediction.file_name,
                     "status": prediction.status,
                     "submitted_at": prediction.submitted_at,
                     "model_mode": prediction.model_mode,
                     "row_count": prediction.row_count,
+                    "is_pinned": prediction.is_pinned,
                     "results": [
                         {
                             "id": result.id,
@@ -293,6 +296,44 @@ class PredictionHistoryView(APIView):
             )
 
         return Response({"count": len(payload), "predictions": payload}, status=status.HTTP_200_OK)
+
+
+class PredictionPinView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+
+    def patch(self, request, prediction_id: int):
+        prediction = get_object_or_404(Prediction, id=prediction_id, user=request.user)
+
+        payload = request.data if isinstance(request.data, dict) else {}
+        desired = payload.get("is_pinned")
+
+        if not isinstance(desired, bool):
+            return Response(
+                {"detail": "Invalid payload: is_pinned must be a boolean."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        prediction.is_pinned = desired
+        prediction.save(update_fields=["is_pinned"])
+
+        return Response(
+            {
+                "id": prediction.id,
+                "is_pinned": prediction.is_pinned,
+                "message": "Prediction pinned." if prediction.is_pinned else "Prediction unpinned.",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class PredictionDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, prediction_id: int):
+        prediction = get_object_or_404(Prediction, id=prediction_id, user=request.user)
+        prediction.delete()  # PredictionResult is removed automatically via CASCADE
+        return Response({"message": "Prediction deleted successfully."}, status=status.HTTP_200_OK)
 
 
 class PredictionDashboardSummaryView(APIView):
@@ -392,32 +433,58 @@ class SendPredictionResultEmailView(APIView):
         model_mode = str(summary.get("model_mode") or "mock").strip() or "mock"
         rows_label = rows_received if isinstance(rows_received, int) else len(results)
 
-        subject = "ProBioPredict - Prediction result (mock mode)"
+        subject = f"ProBioPredict | Prediction result | {submitted_file_name or 'uploaded.csv'}"
+
         body_lines = [
             "Project: ProBioPredict",
+            f"File: {submitted_file_name or 'uploaded.csv'}",
             f"Rows processed: {rows_label}",
-            f"Mode: {model_mode}",
-            "Info: prediction is currently mocked.",
-            "Info: the real ML model will be integrated in a future version.",
+            f"Model mode: {model_mode}",
         ]
-        if submitted_file_name:
-            body_lines.append(f"Submitted file: {submitted_file_name}")
         if submitted_sequence_id:
             body_lines.append(f"Sequence ID label: {submitted_sequence_id}")
+
+        body_lines.append("")
+        body_lines.append("Results:")
+
+        for idx, item in enumerate(results, start=1):
+            sequence_id = str(item.get("sequence_id") or "").strip() or f"row_{idx}"
+            predicted_class = str(item.get("predicted_class") or "unknown").strip()
+            confidence = item.get("confidence")
+            confidence_str = f"{float(confidence):.4f}" if isinstance(confidence, (int, float)) else "N/A"
+            body_lines.append(
+                f"- sequence_id={sequence_id} | predicted_class={predicted_class} | confidence={confidence_str}"
+            )
+
+        body_lines.extend(
+            [
+                "",
+                "Note: ProBioPredict currently uses mock inference.",
+                "The real ML model integration is planned for a future release.",
+            ]
+        )
 
         send_mail(
             subject=subject,
             message="\n".join(body_lines),
             from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-            recipient_list=[user_email],
+            recipient_list=[user_email],  # security: always request.user.email
             fail_silently=False,
         )
 
+        backend_name = str(getattr(settings, "EMAIL_BACKEND", "")).lower()
+        is_console_backend = "console" in backend_name
+
         return Response(
             {
-                "message": "Prediction result email sent successfully (dev backend mode).",
+                "message": (
+                    "Email generated successfully in backend console mode. Check the backend terminal output."
+                    if is_console_backend
+                    else "Prediction result email sent successfully."
+                ),
                 "email_requested": True,
                 "email_sent": True,
+                "delivery_mode": "console" if is_console_backend else "smtp",
             },
             status=status.HTTP_200_OK,
         )

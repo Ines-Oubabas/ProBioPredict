@@ -8,11 +8,19 @@ const initialForm = {
   message: '',
 }
 
+function getTopicLabel(topicValue) {
+  if (topicValue === 'support') return 'Support request'
+  if (topicValue === 'feedback') return 'Product feedback'
+  if (topicValue === 'collaboration') return 'Collaboration'
+  return 'General topic'
+}
+
 function Contact() {
   const [form, setForm] = useState(initialForm)
   const [status, setStatus] = useState({
     sent: false,
     sentAt: '',
+    sentTopicLabel: '',
   })
 
   function onChange(event) {
@@ -23,9 +31,12 @@ function Contact() {
   function onSubmit(event) {
     event.preventDefault()
 
+    const sentTopicLabel = getTopicLabel(form.topic)
+
     setStatus({
       sent: true,
       sentAt: new Date().toLocaleString(),
+      sentTopicLabel,
     })
 
     setForm(initialForm)
@@ -34,15 +45,25 @@ function Contact() {
   return (
     <section className="page-shell">
       <section className="panel contact-page">
-        <h1>Contact ProBioPredict</h1>
-        <p>
-          We’re happy to help with technical support, product feedback, or collaboration ideas.
-        </p>
+        <div className="contact-hero">
+          <p className="hero-kicker">Contact · Prototype</p>
+          <h1>Let’s improve your ProBioPredict workflow</h1>
+          <p>
+            Share support needs, UX feedback, or collaboration ideas. This contact flow is frontend-only for now,
+            presented as a clean prototype before backend wiring.
+          </p>
+
+          <div className="hero-tags" style={{ marginTop: '0.4rem' }}>
+            <span className="tag">Support within 24h target</span>
+            <span className="tag">Product feedback loop</span>
+            <span className="tag">Research collaboration</span>
+          </div>
+        </div>
 
         <div className="contact-layout section-space">
           <form className="card card-soft contact-form contact-hover" onSubmit={onSubmit}>
             <h3>Send a message</h3>
-            <p className="muted">Frontend-only form for now (no backend storage yet).</p>
+            <p className="muted">Prototype mode: messages are stored locally in the UI session.</p>
 
             <label>
               Full name
@@ -108,10 +129,12 @@ function Contact() {
 
             {status.sent ? (
               <div className="contact-success" role="status" aria-live="polite">
-                <strong>Message saved locally.</strong>
+                <strong>Message captured successfully.</strong>
                 <p>
-                  Thank you — your message was recorded on the frontend at {status.sentAt}. Backend
-                  contact API will be connected in a future iteration.
+                  Topic: <strong>{status.sentTopicLabel || 'General topic'}</strong> · Captured at {status.sentAt}.
+                </p>
+                <p>
+                  This is a frontend prototype confirmation. Backend contact API integration is planned in a future sprint.
                 </p>
               </div>
             ) : null}
@@ -121,21 +144,28 @@ function Contact() {
             <article className="card card-feature contact-hover">
               <h3>Support</h3>
               <p className="muted">
-                For account/login/prediction issues, include screenshots and the exact error message.
+                For login, upload, or prediction issues, share exact steps and screenshots so we can reproduce quickly.
               </p>
             </article>
 
             <article className="card card-feature contact-hover">
               <h3>Feedback</h3>
               <p className="muted">
-                Share UX suggestions, confusing labels, or flow improvements for the next sprint.
+                Tell us what feels unclear: labels, navigation, result readability, or action placement.
               </p>
             </article>
 
             <article className="card card-feature contact-hover">
               <h3>Collaboration</h3>
               <p className="muted">
-                Interested in research partnerships or integration? Describe your use case and timeline.
+                Interested in research partnership or integration? Add your timeline and expected data flow.
+              </p>
+            </article>
+
+            <article className="card card-feature contact-hover">
+              <h3>Response workflow</h3>
+              <p className="muted">
+                1) Intake → 2) Triage by topic → 3) Product/technical follow-up with actionable next steps.
               </p>
             </article>
           </aside>

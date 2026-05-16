@@ -97,28 +97,28 @@ function PredictionForm() {
         <div className="form-layout section-space">
           <article className="card card-soft">
             <h3>Expected CSV format</h3>
+            <p className="muted" style={{ marginTop: '0.45rem' }}>
+              Use a clean CSV with one sequence per line. This ensures secure validation and reliable parsing.
+            </p>
 
             <ul className="simple-list">
               <li>
-                The uploaded file must be in <strong>.csv</strong> format.
+                File extension must be <strong>.csv</strong>.
               </li>
               <li>
-                The first line must be a header row.
+                First line must be a header row.
               </li>
               <li>
-                Required columns must be exactly: <strong>sequence_id,truncated_dna</strong>.
+                Required columns (exact order): <strong>sequence_id,truncated_dna</strong>.
               </li>
               <li>
-                <strong>sequence_id</strong> is used to identify each sequence.
+                <strong>sequence_id</strong> identifies each sequence uniquely.
               </li>
               <li>
-                <strong>truncated_dna</strong> must contain only the letters <strong>A, C, G, T</strong>.
+                <strong>truncated_dna</strong> accepts only <strong>A, C, G, T</strong>.
               </li>
-              <li>No required field should be empty.</li>
-              <li>The file must respect backend size and row limits.</li>
-              <li>
-                After uploading the file, click <strong>Run prediction</strong>.
-              </li>
+              <li>Required fields cannot be empty.</li>
+              <li>Backend limits for size and row count still apply.</li>
             </ul>
 
             <p className="muted">Example:</p>
@@ -139,23 +139,30 @@ function PredictionForm() {
           <form className="card card-feature" onSubmit={handleSubmit}>
             <div className="field">
               <label htmlFor="dna-csv-file">Truncated DNA CSV file *</label>
-              <input
-                id="dna-csv-file"
-                type="file"
-                accept=".csv,text/csv"
-                onChange={handleFileChange}
-                disabled={loading}
-              />
-              <p className="muted" style={{ marginTop: '0.45rem' }}>
-                Accepted format: <strong>.csv</strong>
-              </p>
-            </div>
 
-            {csvFile ? (
-              <p className="muted" style={{ margin: '0.4rem 0 0' }}>
-                Selected file: <strong>{csvFile.name}</strong>
-              </p>
-            ) : null}
+              <label className="upload-box" htmlFor="dna-csv-file">
+                <input
+                  id="dna-csv-file"
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleFileChange}
+                  disabled={loading}
+                />
+                <span className="upload-cta">Click to choose a CSV file</span>
+                <p className="muted" style={{ margin: '0.35rem 0 0' }}>
+                  Accepted format: <strong>.csv</strong>
+                </p>
+                {csvFile ? (
+                  <p className="upload-file-name">
+                    Selected file: <strong>{csvFile.name}</strong>
+                  </p>
+                ) : (
+                  <p className="muted" style={{ margin: '0.35rem 0 0' }}>
+                    No file selected yet.
+                  </p>
+                )}
+              </label>
+            </div>
 
             {error ? (
               <div className={planLimitReached ? 'limit-alert' : ''} role="alert" aria-live="assertive">

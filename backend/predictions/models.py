@@ -33,9 +33,10 @@ class Prediction(models.Model):
     submitted_at = models.DateTimeField(auto_now_add=True)
     model_mode = models.CharField(max_length=20, choices=MODEL_MODE_CHOICES, default=MODEL_MODE_MOCK)
     row_count = models.PositiveIntegerField(default=0)
+    is_pinned = models.BooleanField(default=False)
 
     class Meta:
-        ordering = ["-submitted_at"]
+        ordering = ["-is_pinned", "-submitted_at"]
 
     def __str__(self):
         return f"Prediction #{self.pk} - {self.user} - {self.file_name}"

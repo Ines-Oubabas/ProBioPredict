@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchPredictionHistory } from '../services/predictionApi'
+import { deletePrediction, fetchPredictionHistory, pinPrediction } from '../services/predictionApi'
 
 const FILTERS = ['All', 'Probiotic', 'Non-probiotic']
 
@@ -8,29 +8,38 @@ function normalizeLabel(predictedClass) {
   return lower.includes('safe') || lower.includes('probiotic') ? 'Probiotic' : 'Non-probiotic'
 }
 
+function formatDate(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toISOString().slice(0, 10)
+}
+
 function History() {
   const [activeFilter, setActiveFilter] = useState('All')
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [actionState, setActionState] = useState({
+    pinId: null,
+    deleteId: null,
+  })
+
+  async function loadHistory() {
+    setLoading(true)
+    setError('')
+    try {
+      const response = await fetchPredictionHistory()
+      const predictions = Array.isArray(response?.predictions) ? response.predictions : []
+      setGroups(predictions)
+    } catch (e) {
+      setError(e?.message || 'Failed to load prediction history.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    let mounted = true
-    async function load() {
-      setLoading(true)
-      setError('')
-      try {
-        const response = await fetchPredictionHistory()
-        const predictions = Array.isArray(response?.predictions) ? response.predictions : []
-        if (mounted) setGroups(predictions)
-      } catch (e) {
-        if (mounted) setError(e?.message || 'Failed to load prediction history.')
-      } finally {
-        if (mounted) setLoading(false)
-      }
-    }
-    load()
-    return () => { mounted = false }
+    loadHistory()
   }, [])
 
   const filteredGroups = useMemo(() => {
@@ -42,6 +51,42 @@ function History() {
       }))
       .filter((p) => p.results.length > 0)
   }, [groups, activeFilter])
+
+  async function handleTogglePin(prediction) {
+    if (!prediction || actionState.pinId || actionState.deleteId) return
+    setActionState((prev) => ({ ...prev, pinId: prediction.id }))
+    try {
+      await pinPrediction(prediction.id, !prediction.is_pinned)
+      setGroups((prev) =>
+        prev
+          .map((item) => (item.id === prediction.id ? { ...item, is_pinned: !item.is_pinned } : item))
+          .sort((a, b) => {
+            if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1
+            return new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime()
+          })
+      )
+    } catch (e) {
+      setError(e?.message || 'Pin action failed.')
+    } finally {
+      setActionState((prev) => ({ ...prev, pinId: null }))
+    }
+  }
+
+  async function handleDelete(prediction) {
+    if (!prediction || actionState.pinId || actionState.deleteId) return
+    const confirmed = window.confirm(`Delete ${prediction.display_label || `Prediction #${prediction.id}`}?`)
+    if (!confirmed) return
+
+    setActionState((prev) => ({ ...prev, deleteId: prediction.id }))
+    try {
+      await deletePrediction(prediction.id)
+      setGroups((prev) => prev.filter((item) => item.id !== prediction.id))
+    } catch (e) {
+      setError(e?.message || 'Delete action failed.')
+    } finally {
+      setActionState((prev) => ({ ...prev, deleteId: null }))
+    }
+  }
 
   return (
     <section className="page-shell">
@@ -63,38 +108,75 @@ function History() {
         </div>
 
         {loading ? <p className="muted">Loading history...</p> : null}
-        {error ? <p role="alert" style={{ color: '#ffb4b4' }}>{error}</p> : null}
+        {error ? (
+          <p role="alert" style={{ color: '#ffb4b4' }}>
+            {error}
+          </p>
+        ) : null}
 
         {!loading && !error && filteredGroups.length === 0 ? (
           <p className="muted">No predictions found yet. Submit a CSV file to start building your history.</p>
         ) : null}
 
-        {!loading && !error && filteredGroups.map((prediction) => (
-          <article key={prediction.id} className="card card-soft section-space">
-            <p><strong>Prediction #{prediction.id}</strong> · {prediction.file_name}</p>
-            <p className="muted">
-              {new Date(prediction.submitted_at).toISOString().slice(0, 10)} · {prediction.row_count} rows · {prediction.status}
-            </p>
+        {!loading &&
+          !error &&
+          filteredGroups.map((prediction) => (
+            <article key={prediction.id} className="card card-soft section-space">
+              <div className="history-header">
+                <div>
+                  <p>
+                    <strong>{prediction.display_label || `Prediction #${prediction.id}`}</strong> · {prediction.file_name}
+                    {prediction.is_pinned ? <span className="badge-pinned" style={{ marginLeft: '0.55rem' }}>Pinned</span> : null}
+                  </p>
+                  <p className="muted">
+                    {formatDate(prediction.submitted_at)} · {prediction.row_count} rows · {prediction.status}
+                  </p>
+                </div>
 
-            <ul className="table-list">
-              {prediction.results.map((result) => {
-                const label = normalizeLabel(result.predicted_class)
-                return (
-                  <li key={result.id}>
-                    <span>{result.sequence_id}</span>
-                    <span>
-                      <span className={`badge-pill ${label === 'Probiotic' ? 'badge-probiotic' : 'badge-non'}`}>
-                        {label}
+                <div className="history-actions">
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => handleTogglePin(prediction)}
+                    disabled={actionState.pinId === prediction.id || actionState.deleteId === prediction.id}
+                  >
+                    {actionState.pinId === prediction.id
+                      ? 'Saving...'
+                      : prediction.is_pinned
+                        ? 'Unpin'
+                        : 'Pin'}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={() => handleDelete(prediction)}
+                    disabled={actionState.deleteId === prediction.id || actionState.pinId === prediction.id}
+                  >
+                    {actionState.deleteId === prediction.id ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+
+              <ul className="table-list">
+                {(prediction.results || []).map((result) => {
+                  const label = normalizeLabel(result.predicted_class)
+                  return (
+                    <li key={result.id}>
+                      <span>{result.sequence_id}</span>
+                      <span>
+                        <span className={`badge-pill ${label === 'Probiotic' ? 'badge-probiotic' : 'badge-non'}`}>
+                          {label}
+                        </span>
                       </span>
-                    </span>
-                    <span>{`${Math.round((result.confidence || 0) * 100)}%`}</span>
-                    <span>{new Date(prediction.submitted_at).toISOString().slice(0, 10)}</span>
-                  </li>
-                )
-              })}
-            </ul>
-          </article>
-        ))}
+                      <span>{`${Math.round((result.confidence || 0) * 100)}%`}</span>
+                      <span>{formatDate(prediction.submitted_at)}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </article>
+          ))}
       </section>
     </section>
   )
