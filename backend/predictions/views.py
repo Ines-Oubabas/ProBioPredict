@@ -1,5 +1,3 @@
-# backend/predictions/views.py
-
 """Secure prediction APIs (mocked inference for now, production-ready structure)."""
 
 from __future__ import annotations
@@ -48,6 +46,33 @@ def _map_result_label(predicted_class: str) -> str:
     if "safe" in normalized or "probiotic" in normalized:
         return "Probiotic"
     return "Non-probiotic"
+
+
+def _serialize_prediction_detail(prediction: Prediction):
+    prediction_results = list(prediction.results.all().order_by("id"))
+    results = [
+        {
+            "sequence_id": r.sequence_id,
+            "predicted_class": r.predicted_class,
+            "confidence": r.confidence,
+        }
+        for r in prediction_results
+    ]
+
+    return {
+        "message": "Prediction loaded successfully.",
+        "summary": {
+            "rows_received": prediction.row_count,
+            "columns": ["sequence_id", "truncated_dna"],
+            "model_mode": prediction.model_mode,
+            "prediction_id": prediction.id,
+            "file_name": prediction.file_name,
+            "status": prediction.status,
+            "submitted_at": prediction.submitted_at,
+            "is_pinned": prediction.is_pinned,
+        },
+        "results": results,
+    }
 
 
 class PredictionUploadView(APIView):
@@ -298,6 +323,18 @@ class PredictionHistoryView(APIView):
         return Response({"count": len(payload), "predictions": payload}, status=status.HTTP_200_OK)
 
 
+class PredictionDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, prediction_id: int):
+        prediction = get_object_or_404(
+            Prediction.objects.prefetch_related("results"),
+            id=prediction_id,
+            user=request.user,
+        )
+        return Response(_serialize_prediction_detail(prediction), status=status.HTTP_200_OK)
+
+
 class PredictionPinView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser]
@@ -332,7 +369,7 @@ class PredictionDeleteView(APIView):
 
     def delete(self, request, prediction_id: int):
         prediction = get_object_or_404(Prediction, id=prediction_id, user=request.user)
-        prediction.delete()  # PredictionResult is removed automatically via CASCADE
+        prediction.delete()
         return Response({"message": "Prediction deleted successfully."}, status=status.HTTP_200_OK)
 
 
@@ -468,7 +505,7 @@ class SendPredictionResultEmailView(APIView):
             subject=subject,
             message="\n".join(body_lines),
             from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-            recipient_list=[user_email],  # security: always request.user.email
+            recipient_list=[user_email],
             fail_silently=False,
         )
 

@@ -37,6 +37,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/prediction" element={<PredictionForm />} />
           <Route path="/prediction-result" element={<PredictionResult />} />
+          <Route path="/prediction-result/:predictionId" element={<PredictionResult />} />
           <Route path="/history" element={<History />} />
         </Route>
       </Route>

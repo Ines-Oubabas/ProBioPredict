@@ -1,14 +1,45 @@
-import { Link, useLocation } from 'react-router-dom'
-import { useMemo, useState } from 'react'
-import { sendPredictionResultByEmail } from '../services/predictionApi'
+import { Link, useLocation, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { fetchPredictionDetail, sendPredictionResultByEmail } from '../services/predictionApi'
 
 function PredictionResult() {
   const location = useLocation()
-  const state = location.state || {}
+  const { predictionId } = useParams()
 
-  const predictionResponse = state.predictionResponse || null
-  const submittedFileName = state.submittedFileName || null
-  const submittedSequenceId = state.submittedSequenceId || null
+  const state = location.state || {}
+  const statePredictionResponse = state.predictionResponse || null
+
+  const [predictionResponse, setPredictionResponse] = useState(statePredictionResponse)
+  const [submittedFileName, setSubmittedFileName] = useState(state.submittedFileName || null)
+  const [submittedSequenceId, setSubmittedSequenceId] = useState(state.submittedSequenceId || null)
+  const [loading, setLoading] = useState(!statePredictionResponse && Boolean(predictionId))
+  const [loadError, setLoadError] = useState('')
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadFromApi() {
+      if (!predictionId) return
+      if (statePredictionResponse) return
+
+      setLoading(true)
+      setLoadError('')
+      try {
+        const data = await fetchPredictionDetail(predictionId)
+        if (!mounted) return
+        setPredictionResponse(data)
+        setSubmittedFileName(data?.summary?.file_name || null)
+      } catch (error) {
+        if (!mounted) return
+        setLoadError(error?.message || 'Failed to load prediction result.')
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
+    loadFromApi()
+    return () => { mounted = false }
+  }, [predictionId, statePredictionResponse])
 
   const summary = predictionResponse?.summary || {}
   const results = Array.isArray(predictionResponse?.results) ? predictionResponse.results : []
@@ -28,8 +59,9 @@ function PredictionResult() {
 
   const downloadFilename = useMemo(() => {
     const date = new Date().toISOString().replace(/[:.]/g, '-')
-    return `probio-predict-result-${date}.json`
-  }, [])
+    const idPart = summary?.prediction_id ? `-${summary.prediction_id}` : ''
+    return `probio-predict-result${idPart}-${date}.json`
+  }, [summary])
 
   function handleDownloadResult() {
     if (!hasData) return
@@ -54,7 +86,6 @@ function PredictionResult() {
     document.body.appendChild(anchor)
     anchor.click()
     document.body.removeChild(anchor)
-
     URL.revokeObjectURL(url)
   }
 
@@ -103,7 +134,10 @@ function PredictionResult() {
       <section className="panel">
         <h1>Prediction result</h1>
 
-        {!hasData ? (
+        {loading ? <p className="muted">Loading prediction result...</p> : null}
+        {loadError ? <p role="alert" style={{ color: '#ffb4b4' }}>{loadError}</p> : null}
+
+        {!loading && !loadError && !hasData ? (
           <article className="card card-soft section-space">
             <h3>No prediction result available</h3>
             <p className="muted">
@@ -115,79 +149,31 @@ function PredictionResult() {
               </Link>
             </div>
           </article>
-        ) : (
+        ) : null}
+
+        {!loading && !loadError && hasData ? (
           <div className="form-layout section-space">
             <article className="card card-soft">
               <h3>Submission summary</h3>
               <ul className="simple-list">
-                {submittedFileName ? (
-                  <li>
-                    File: <strong>{submittedFileName}</strong>
-                  </li>
-                ) : null}
-
-                {submittedSequenceId ? (
-                  <li>
-                    Sequence ID label: <strong>{submittedSequenceId}</strong>
-                  </li>
-                ) : null}
-
-                {typeof rowsReceived === 'number' ? (
-                  <li>
-                    Rows received: <strong>{rowsReceived}</strong>
-                  </li>
-                ) : null}
-
-                {modelMode ? (
-                  <li>
-                    Model mode: <strong>{modelMode}</strong>
-                  </li>
-                ) : null}
-
-                {columns.length > 0 ? (
-                  <li>
-                    Columns: <strong>{columns.join(', ')}</strong>
-                  </li>
-                ) : null}
+                {submittedFileName ? <li>File: <strong>{submittedFileName}</strong></li> : null}
+                {submittedSequenceId ? <li>Sequence ID label: <strong>{submittedSequenceId}</strong></li> : null}
+                {typeof rowsReceived === 'number' ? <li>Rows received: <strong>{rowsReceived}</strong></li> : null}
+                {modelMode ? <li>Model mode: <strong>{modelMode}</strong></li> : null}
+                {columns.length > 0 ? <li>Columns: <strong>{columns.join(', ')}</strong></li> : null}
               </ul>
-
-              {predictionResponse?.message ? (
-                <p className="muted" style={{ marginTop: '0.75rem' }}>
-                  {predictionResponse.message}
-                </p>
-              ) : null}
 
               <div className="form-actions" style={{ marginTop: '1rem', gap: '0.6rem', flexWrap: 'wrap' }}>
                 <button type="button" className="btn btn-accent" onClick={handleDownloadResult}>
                   Download result
                 </button>
-
-                <button
-                  type="button"
-                  className="btn btn-accent"
-                  onClick={handleSendResultByEmail}
-                  disabled={emailStatus.loading}
-                >
+                <button type="button" className="btn btn-accent" onClick={handleSendResultByEmail} disabled={emailStatus.loading}>
                   {emailStatus.loading ? 'Sending email...' : 'Send result by email'}
                 </button>
               </div>
 
-              <p className="muted" style={{ marginTop: '0.65rem' }}>
-                Email note: if backend uses console mode, email content is printed in backend logs. With SMTP configured,
-                it is delivered to your account email.
-              </p>
-
-              {emailStatus.success ? (
-                <p className="muted" style={{ marginTop: '0.35rem', color: '#b9f6ca' }}>
-                  {emailStatus.message}
-                </p>
-              ) : null}
-
-              {emailStatus.error ? (
-                <p style={{ color: '#ffb4b4', marginTop: '0.35rem' }} role="alert" aria-live="assertive">
-                  {emailStatus.error}
-                </p>
-              ) : null}
+              {emailStatus.success ? <p className="muted" style={{ marginTop: '0.35rem', color: '#b9f6ca' }}>{emailStatus.message}</p> : null}
+              {emailStatus.error ? <p style={{ color: '#ffb4b4', marginTop: '0.35rem' }} role="alert">{emailStatus.error}</p> : null}
             </article>
 
             <article className="card card-feature">
@@ -204,12 +190,8 @@ function PredictionResult() {
                   <tbody>
                     {results.map((item, index) => (
                       <tr key={`${item.sequence_id || 'sequence'}-${index}`}>
-                        <td style={{ padding: '0.55rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                          {item.sequence_id || '—'}
-                        </td>
-                        <td style={{ padding: '0.55rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                          {item.predicted_class || '—'}
-                        </td>
+                        <td style={{ padding: '0.55rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>{item.sequence_id || '—'}</td>
+                        <td style={{ padding: '0.55rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>{item.predicted_class || '—'}</td>
                         <td style={{ padding: '0.55rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                           {typeof item.confidence === 'number' ? item.confidence.toFixed(2) : '—'}
                         </td>
@@ -220,13 +202,11 @@ function PredictionResult() {
               </div>
 
               <div className="form-actions" style={{ marginTop: '0.9rem' }}>
-                <Link to="/prediction" className="btn btn-accent">
-                  Submit another file
-                </Link>
+                <Link to="/prediction" className="btn btn-accent">Submit another file</Link>
               </div>
             </article>
           </div>
-        )}
+        ) : null}
       </section>
     </section>
   )

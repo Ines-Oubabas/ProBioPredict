@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { submitPredictionCsv } from '../services/predictionApi'
 
@@ -8,11 +8,13 @@ LCASEI_A18,TTGACCGATGAGTTCTAACGGTACCGTTAGCTAGCTACCGATAGCATGCTTGA`
 
 function PredictionForm() {
   const navigate = useNavigate()
+  const fileInputRef = useRef(null)
 
   const [csvFile, setCsvFile] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [planLimitReached, setPlanLimitReached] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
 
   function isCsvFile(file) {
     if (!file) return false
@@ -20,9 +22,7 @@ function PredictionForm() {
     return lowerName.endsWith('.csv')
   }
 
-  function handleFileChange(event) {
-    const file = event.target.files?.[0] || null
-
+  function applyFileSelection(file) {
     if (!file) {
       setCsvFile(null)
       return
@@ -38,6 +38,37 @@ function PredictionForm() {
     setError('')
     setPlanLimitReached(false)
     setCsvFile(file)
+  }
+
+  function handleFileChange(event) {
+    const file = event.target.files?.[0] || null
+    applyFileSelection(file)
+  }
+
+  function handleDrop(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    setDragActive(false)
+    if (loading) return
+    const file = event.dataTransfer?.files?.[0] || null
+    applyFileSelection(file)
+  }
+
+  function handleDragOver(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!loading) setDragActive(true)
+  }
+
+  function handleDragLeave(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    setDragActive(false)
+  }
+
+  function handleUploadBoxClick() {
+    if (loading) return
+    fileInputRef.current?.click()
   }
 
   async function handleSubmit(event) {
@@ -61,11 +92,9 @@ function PredictionForm() {
     setLoading(true)
 
     try {
-      const result = await submitPredictionCsv({
-        csvFile,
-      })
-
-      navigate('/prediction-result', {
+      const result = await submitPredictionCsv({ csvFile })
+      const predictionId = result?.summary?.prediction_id
+      navigate(predictionId ? `/prediction-result/${predictionId}` : '/prediction-result', {
         state: {
           predictionResponse: result,
           submittedFileName: csvFile.name,
@@ -90,9 +119,7 @@ function PredictionForm() {
     <section className="page-bg-prediction page-shell">
       <section className="panel">
         <h1>Prediction submission</h1>
-        <p>
-          Upload a <strong>.csv</strong> file containing truncated DNA sequences to run a prediction.
-        </p>
+        <p>Upload a <strong>.csv</strong> file containing truncated DNA sequences to run a prediction.</p>
 
         <div className="form-layout section-space">
           <article className="card card-soft">
@@ -102,36 +129,24 @@ function PredictionForm() {
             </p>
 
             <ul className="simple-list">
-              <li>
-                File extension must be <strong>.csv</strong>.
-              </li>
-              <li>
-                First line must be a header row.
-              </li>
-              <li>
-                Required columns (exact order): <strong>sequence_id,truncated_dna</strong>.
-              </li>
-              <li>
-                <strong>sequence_id</strong> identifies each sequence uniquely.
-              </li>
-              <li>
-                <strong>truncated_dna</strong> accepts only <strong>A, C, G, T</strong>.
-              </li>
+              <li>File extension must be <strong>.csv</strong>.</li>
+              <li>First line must be a header row.</li>
+              <li>Required columns (exact order): <strong>sequence_id,truncated_dna</strong>.</li>
+              <li><strong>sequence_id</strong> identifies each sequence uniquely.</li>
+              <li><strong>truncated_dna</strong> accepts only <strong>A, C, G, T</strong>.</li>
               <li>Required fields cannot be empty.</li>
               <li>Backend limits for size and row count still apply.</li>
             </ul>
 
             <p className="muted">Example:</p>
-            <pre
-              style={{
-                whiteSpace: 'pre-wrap',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.10)',
-                borderRadius: '12px',
-                padding: '0.7rem',
-                overflowX: 'auto',
-              }}
-            >
+            <pre style={{
+              whiteSpace: 'pre-wrap',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.10)',
+              borderRadius: '12px',
+              padding: '0.7rem',
+              overflowX: 'auto',
+            }}>
               {csvExample}
             </pre>
           </article>
@@ -140,28 +155,39 @@ function PredictionForm() {
             <div className="field">
               <label htmlFor="dna-csv-file">Truncated DNA CSV file *</label>
 
-              <label className="upload-box" htmlFor="dna-csv-file">
-                <input
-                  id="dna-csv-file"
-                  type="file"
-                  accept=".csv,text/csv"
-                  onChange={handleFileChange}
-                  disabled={loading}
-                />
-                <span className="upload-cta">Click to choose a CSV file</span>
-                <p className="muted" style={{ margin: '0.35rem 0 0' }}>
-                  Accepted format: <strong>.csv</strong>
+              <input
+                ref={fileInputRef}
+                id="dna-csv-file"
+                type="file"
+                accept=".csv,text/csv"
+                onChange={handleFileChange}
+                disabled={loading}
+                style={{ display: 'none' }}
+              />
+
+              <div
+                role="button"
+                tabIndex={0}
+                className={`upload-zone ${dragActive ? 'is-drag-active' : ''} ${loading ? 'is-disabled' : ''}`}
+                onClick={handleUploadBoxClick}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    handleUploadBoxClick()
+                  }
+                }}
+                aria-label="Click here to upload your CSV file"
+              >
+                <div className="upload-zone-badge">CSV</div>
+                <p className="upload-zone-title">Click here to upload your CSV file</p>
+                <p className="upload-zone-subtitle">or drag and drop your .csv file</p>
+                <p className="upload-zone-state">
+                  {csvFile ? <>Selected file: <strong>{csvFile.name}</strong></> : 'No file selected yet'}
                 </p>
-                {csvFile ? (
-                  <p className="upload-file-name">
-                    Selected file: <strong>{csvFile.name}</strong>
-                  </p>
-                ) : (
-                  <p className="muted" style={{ margin: '0.35rem 0 0' }}>
-                    No file selected yet.
-                  </p>
-                )}
-              </label>
+              </div>
             </div>
 
             {error ? (
@@ -169,15 +195,13 @@ function PredictionForm() {
                 <p style={{ color: '#ffb4b4', margin: '0.4rem 0 0' }}>{error}</p>
                 {planLimitReached ? (
                   <div className="form-actions" style={{ marginTop: '0.55rem' }}>
-                    <Link to="/premium" className="btn btn-accent">
-                      View Premium plan
-                    </Link>
+                    <Link to="/premium" className="btn btn-accent">View Premium plan</Link>
                   </div>
                 ) : null}
               </div>
             ) : null}
 
-            <div className="form-actions">
+            <div className="form-actions upload-submit-row">
               <button className="btn btn-accent" type="submit" disabled={loading}>
                 {loading ? 'Uploading...' : 'Run prediction'}
               </button>

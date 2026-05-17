@@ -56,6 +56,16 @@ export async function fetchPredictionHistory() {
   return data
 }
 
+export async function fetchPredictionDetail(predictionId) {
+  const response = await fetch(`${API_BASE_URL}/predictions/${predictionId}/`, {
+    method: 'GET',
+    headers: getAuthHeader(),
+  })
+  const data = await parseResponse(response)
+  if (!response.ok) throw errorFromResponse(response.status, data, 'Prediction detail request failed.')
+  return data
+}
+
 export async function pinPrediction(predictionId, isPinned) {
   const response = await fetch(`${API_BASE_URL}/predictions/${predictionId}/pin/`, {
     method: 'PATCH',
