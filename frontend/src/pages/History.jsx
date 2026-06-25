@@ -6,7 +6,15 @@ const FILTERS = ['All', 'Probiotic', 'Non-probiotic']
 
 function normalizeLabel(predictedClass) {
   const lower = String(predictedClass || '').toLowerCase()
-  return lower.includes('safe') || lower.includes('probiotic') ? 'Probiotic' : 'Non-probiotic'
+  // D'abord vérifier 'non-probiotic'
+  if (lower === 'non-probiotic' || lower.includes('non-probiotic') || lower === 'non probiotic') {
+    return 'Non-probiotic'
+  }
+  // Ensuite vérifier 'probiotic'
+  if (lower === 'probiotic' || lower.includes('probiotic') || lower.includes('safe')) {
+    return 'Probiotic'
+  }
+  return 'Non-probiotic'
 }
 
 function formatDate(value) {
