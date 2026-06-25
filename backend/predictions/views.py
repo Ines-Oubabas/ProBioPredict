@@ -20,7 +20,6 @@ from rest_framework.views import APIView
 from .models import Prediction, PredictionResult
 from .services import run_inference
 
-
 DNA_PATTERN = re.compile(r"^[ACGT]+$")
 CSV_INJECTION_PREFIXES = ("=", "+", "-", "@")
 
@@ -43,6 +42,9 @@ def _normalize_columns(values):
 
 def _map_result_label(predicted_class: str) -> str:
     normalized = str(predicted_class or "").strip().lower()
+    # Vérifier si c'est explicitement non-probiotic d'abord
+    if "non-probiotic" in normalized or "non probiotic" in normalized or "nonprobiotic" in normalized:
+        return "Non-probiotic"
     if "safe" in normalized or "probiotic" in normalized:
         return "Probiotic"
     return "Non-probiotic"
@@ -525,3 +527,38 @@ class SendPredictionResultEmailView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+import sys
+import os
+
+
+# Ajout du chemin racine pour importer ml_engine
+sys.path.append('/mnt/c/Users/Aicha/github/ProBioPredict')
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+
+@api_view(['POST'])
+def predict_sequence(request):
+    """
+    Endpoint pour prédire une séquence ADN
+    """
+    from ml_engine.predict import predict
+    
+    sequence = request.data.get('sequence', '').upper()
+    
+    if not sequence:
+        return Response({
+            'success': False,
+            'error': 'La séquence ADN est requise'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if len(sequence) != 1000:
+        return Response({
+            'success': False,
+            'error': f'La séquence doit faire 1000 pb (reçu: {len(sequence)})'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    result = predict(sequence)
+    return Response(result)
