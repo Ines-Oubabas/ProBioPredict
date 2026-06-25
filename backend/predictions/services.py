@@ -1,5 +1,3 @@
-# backend/predictions/services.py
-
 """
 Inference service abstraction.
 
@@ -7,32 +5,47 @@ Keep this contract stable:
 - input: list[dict] rows
 - output: list[dict] normalized inference results
 
-When the real ML model is ready, replace internals of run_inference()
-(or delegate to a dedicated module) without changing API views.
+Real ML model is now integrated using TensorFlow Lite.
 """
 
-
-def _mock_inference(rows):
-    return [
-        {
-            "sequence_id": item["sequence_id"],
-            "predicted_class": "mock_safe",
-            "confidence": 0.95,
-            "raw_output": {
-                "source": "mock_inference_service",
-                "note": "Real ML model not integrated yet.",
-            },
-        }
-        for item in rows
-    ]
+import sys
+sys.path.append('/mnt/c/Users/Aicha/github/ProBioPredict')
+from ml_engine.predict import predict_from_sequence
 
 
 def run_inference(rows):
     """
     Public inference entrypoint used by views.
-    Future real model should be wired here.
+    Uses the real TFLite model for predictions.
     """
-    # Future switch example:
-    # from .services_inference import run_real_inference
-    # return run_real_inference(rows)
-    return _mock_inference(rows)
+    results = []
+    
+    for item in rows:
+        sequence = item["truncated_dna"].upper()
+        
+        # Le modèle attend 1000 pb exactement
+        if len(sequence) < 1000:
+            # Padder avec des 'A' si trop court
+            sequence = sequence.ljust(1000, 'A')
+        elif len(sequence) > 1000:
+            # Tronquer si trop long
+            sequence = sequence[:1000]
+        
+        # Prédiction avec votre modèle
+        prediction = predict_from_sequence(sequence)
+        
+        # Convertir le résultat au format attendu par l'application
+        predicted_class = 'probiotic' if prediction['result'] == 'PROBIOTIQUE' else 'non-probiotic'
+        
+        results.append({
+            "sequence_id": item["sequence_id"],
+            "predicted_class": predicted_class,
+            "confidence": prediction['probability'],
+            "raw_output": {
+                "source": "tflite_model",
+                "probability": prediction['probability'],
+                "confidence": prediction['confidence']
+            },
+        })
+    
+    return results
