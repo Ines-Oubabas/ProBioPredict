@@ -1,4 +1,4 @@
-"""Secure prediction APIs (mocked inference for now, production-ready structure)."""
+"""Secure prediction APIs with plan-aware limits and ML inference integration."""
 
 from __future__ import annotations
 
@@ -11,14 +11,17 @@ from django.core.mail import send_mail
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import status
+from rest_framework.decorators import api_view
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from billing.models import UserSubscription, get_or_create_user_subscription
+
 from .models import Prediction, PredictionResult
-from .services import run_inference
+from .services import predict_from_sequence, run_inference
 
 DNA_PATTERN = re.compile(r"^[ACGT]+$")
 CSV_INJECTION_PREFIXES = ("=", "+", "-", "@")
@@ -48,6 +51,70 @@ def _map_result_label(predicted_class: str) -> str:
     if "safe" in normalized or "probiotic" in normalized:
         return "Probiotic"
     return "Non-probiotic"
+
+
+def _plan_display_name(plan_key: str) -> str:
+    """Return a frontend-friendly plan name."""
+    if plan_key == UserSubscription.PLAN_PRO:
+        return "Pro"
+    if plan_key == UserSubscription.PLAN_LAB:
+        return "Lab"
+    return "Free"
+
+
+def _get_user_plan_usage(user):
+    """
+    Return usage information for the authenticated user's prediction plan.
+
+    Business rule:
+    - A prediction corresponds to one final prediction job/result for a bacterium:
+      probiotic or non-probiotic.
+    - Free users keep the existing limit: 3 predictions maximum.
+    - Pro users get a higher limit from PREDICTION_PRO_PLAN_LIMIT.
+    - Lab users are unlimited when PREDICTION_LAB_PLAN_LIMIT=0.
+    - Premium is trusted only when the local subscription was updated by a
+      verified Stripe webhook.
+    """
+    subscription = get_or_create_user_subscription(user)
+    used = Prediction.objects.filter(user=user).count()
+
+    limit = subscription.prediction_limit
+    is_unlimited = limit is None
+
+    if is_unlimited:
+        remaining = None
+    else:
+        remaining = max(int(limit) - used, 0)
+
+    effective_plan_key = subscription.plan if subscription.is_premium else UserSubscription.PLAN_FREE
+
+    return {
+        "subscription": subscription,
+        "plan_key": effective_plan_key,
+        "plan_name": _plan_display_name(effective_plan_key),
+        "status": subscription.status,
+        "is_premium": subscription.is_premium,
+        "limit": limit,
+        "limit_label": subscription.prediction_limit_label,
+        "used": used,
+        "remaining": remaining,
+        "is_unlimited": is_unlimited,
+    }
+
+
+def _serialize_plan_payload(plan_usage):
+    """Serialize plan usage consistently for frontend dashboard/API responses."""
+    return {
+        "key": plan_usage["plan_key"],
+        "name": plan_usage["plan_name"],
+        "status": plan_usage["status"],
+        "is_premium": plan_usage["is_premium"],
+        "limit": plan_usage["limit"],
+        "limit_label": plan_usage["limit_label"],
+        "used": plan_usage["used"],
+        "remaining": plan_usage["remaining"],
+        "is_unlimited": plan_usage["is_unlimited"],
+    }
 
 
 def _serialize_prediction_detail(prediction: Prediction):
@@ -84,15 +151,17 @@ class PredictionUploadView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
-        free_limit = int(getattr(settings, "PREDICTION_FREE_PLAN_LIMIT", DEFAULT_FREE_PLAN_LIMIT))
-        user_prediction_count = Prediction.objects.filter(user=request.user).count()
-        if user_prediction_count >= free_limit:
+        plan_usage = _get_user_plan_usage(request.user)
+
+        if not plan_usage["is_unlimited"] and plan_usage["used"] >= int(plan_usage["limit"]):
             return Response(
                 {
                     "detail": (
-                        f"Free plan limit reached: maximum {free_limit} predictions. "
+                        f"{plan_usage['plan_name']} plan limit reached: maximum "
+                        f"{plan_usage['limit_label']} predictions. "
                         "Please upgrade your plan to continue."
-                    )
+                    ),
+                    "plan": _serialize_plan_payload(plan_usage),
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
@@ -236,7 +305,7 @@ class PredictionUploadView(APIView):
                 user=request.user,
                 file_name=filename or "uploaded.csv",
                 status=Prediction.STATUS_PENDING,
-                model_mode=Prediction.MODEL_MODE_MOCK,
+                model_mode=Prediction.MODEL_MODE_REAL,
                 row_count=len(validated_rows),
             )
 
@@ -272,15 +341,18 @@ class PredictionUploadView(APIView):
             for item in inference_results
         ]
 
+        refreshed_plan_usage = _get_user_plan_usage(request.user)
+
         return Response(
             {
-                "message": "CSV validated successfully. Prediction is currently mocked.",
+                "message": "CSV validated successfully. Prediction completed.",
                 "summary": {
                     "rows_received": len(validated_rows),
                     "columns": expected_columns,
-                    "model_mode": "mock",
+                    "model_mode": prediction.model_mode,
                     "prediction_id": prediction.id,
                 },
+                "plan": _serialize_plan_payload(refreshed_plan_usage),
                 "results": results,
             },
             status=status.HTTP_200_OK,
@@ -379,7 +451,7 @@ class PredictionDashboardSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        free_limit = int(getattr(settings, "PREDICTION_FREE_PLAN_LIMIT", DEFAULT_FREE_PLAN_LIMIT))
+        plan_usage = _get_user_plan_usage(request.user)
         predictions_qs = (
             Prediction.objects.filter(user=request.user)
             .prefetch_related("results")
@@ -387,8 +459,6 @@ class PredictionDashboardSummaryView(APIView):
         )
 
         predictions = list(predictions_qs)
-        used = len(predictions)
-        remaining = max(free_limit - used, 0)
 
         latest_prediction = predictions[0] if predictions else None
         latest_result = latest_prediction.results.all()[0] if latest_prediction and latest_prediction.results.exists() else None
@@ -410,12 +480,7 @@ class PredictionDashboardSummaryView(APIView):
                 )
 
         response_payload = {
-            "plan": {
-                "name": "Free",
-                "limit": free_limit,
-                "used": used,
-                "remaining": remaining,
-            },
+            "plan": _serialize_plan_payload(plan_usage),
             "latest_prediction": None,
             "latest_result": None,
             "recent_history": recent_items[:5],
@@ -469,7 +534,7 @@ class SendPredictionResultEmailView(APIView):
             )
 
         rows_received = summary.get("rows_received")
-        model_mode = str(summary.get("model_mode") or "mock").strip() or "mock"
+        model_mode = str(summary.get("model_mode") or "real").strip() or "real"
         rows_label = rows_received if isinstance(rows_received, int) else len(results)
 
         subject = f"ProBioPredict | Prediction result | {submitted_file_name or 'uploaded.csv'}"
@@ -484,7 +549,7 @@ class SendPredictionResultEmailView(APIView):
             body_lines.append(f"Sequence ID label: {submitted_sequence_id}")
 
         body_lines.append("")
-        body_lines.append("Results:")
+        body_lines.append("Prediction result:")
 
         for idx, item in enumerate(results, start=1):
             sequence_id = str(item.get("sequence_id") or "").strip() or f"row_{idx}"
@@ -498,8 +563,8 @@ class SendPredictionResultEmailView(APIView):
         body_lines.extend(
             [
                 "",
-                "Note: ProBioPredict currently uses mock inference.",
-                "The real ML model integration is planned for a future release.",
+                "Note: ProBioPredict returns a final classification for the submitted bacterium sequence data.",
+                "The result indicates whether the bacterium is predicted as probiotic or non-probiotic.",
             ]
         )
 
@@ -528,37 +593,35 @@ class SendPredictionResultEmailView(APIView):
             status=status.HTTP_200_OK,
         )
 
-import sys
-import os
 
-
-# Ajout du chemin racine pour importer ml_engine
-sys.path.append('/mnt/c/Users/Aicha/github/ProBioPredict')
-
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework import status
-
-@api_view(['POST'])
+@api_view(["POST"])
 def predict_sequence(request):
     """
-    Endpoint pour prédire une séquence ADN
+    Endpoint pour prédire une séquence ADN.
+
+    This endpoint keeps the existing API route but avoids any machine-specific
+    sys.path manipulation. The ml_engine import path is handled centrally by
+    predictions/services.py.
     """
-    from ml_engine.predict import predict
-    
-    sequence = request.data.get('sequence', '').upper()
-    
+    sequence = request.data.get("sequence", "").upper()
+
     if not sequence:
-        return Response({
-            'success': False,
-            'error': 'La séquence ADN est requise'
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
+        return Response(
+            {
+                "success": False,
+                "error": "La séquence ADN est requise",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     if len(sequence) != 1000:
-        return Response({
-            'success': False,
-            'error': f'La séquence doit faire 1000 pb (reçu: {len(sequence)})'
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
-    result = predict(sequence)
+        return Response(
+            {
+                "success": False,
+                "error": f"La séquence doit faire 1000 pb (reçu: {len(sequence)})",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    result = predict_from_sequence(sequence)
     return Response(result)

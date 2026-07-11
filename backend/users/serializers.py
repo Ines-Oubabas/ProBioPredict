@@ -4,6 +4,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
+from billing.models import get_or_create_user_subscription
+from billing.serializers import SubscriptionSerializer
+
 User = get_user_model()
 
 
@@ -11,12 +14,13 @@ class UserSerializer(serializers.ModelSerializer):
     """Serialize safe user fields for API responses."""
 
     full_name = serializers.SerializerMethodField()
+    subscription = serializers.SerializerMethodField()
 
     class Meta:
         """Metadata for user serialization."""
 
         model = User
-        fields = ("id", "email", "full_name", "date_joined")
+        fields = ("id", "email", "full_name", "date_joined", "subscription")
 
     def get_full_name(self, obj):
         """Return a normalized full name for frontend display."""
@@ -24,6 +28,17 @@ class UserSerializer(serializers.ModelSerializer):
         if full_name:
             return full_name
         return obj.first_name or ""
+
+    def get_subscription(self, obj):
+        """
+        Return the user's billing/subscription information.
+
+        A missing subscription is treated as Free and created lazily.
+        Premium status must come from the backend database, which is updated by
+        verified Stripe webhooks.
+        """
+        subscription = get_or_create_user_subscription(obj)
+        return SubscriptionSerializer(subscription).data
 
 
 class RegisterSerializer(serializers.Serializer):
@@ -89,6 +104,10 @@ class RegisterSerializer(serializers.Serializer):
             first_name=first_name,
             last_name=last_name,
         )
+
+        # Create an explicit Free subscription for new users.
+        get_or_create_user_subscription(user)
+
         return user
 
     def update(self, instance, validated_data):
@@ -140,4 +159,3 @@ class LoginSerializer(serializers.Serializer):
         This method exists to satisfy Serializer abstract contract for linting.
         """
         return instance
-    

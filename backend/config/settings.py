@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "users",
     "predictions",
+    "billing",
     # Progressive strategy:
     # keep disabled by default in current stable flow; enable with env toggle when ready.
     # "rest_framework_simplejwt.token_blacklist",
@@ -284,6 +285,35 @@ PREDICTION_UPLOAD_EXPECTED_COLUMNS = env_list(
     "PREDICTION_UPLOAD_EXPECTED_COLUMNS",
     "sequence_id,truncated_dna",
 )
+
+
+# ------------------------------------------------------------------------------
+# App URLs
+# ------------------------------------------------------------------------------
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
+
+
+# ------------------------------------------------------------------------------
+# Stripe
+# ------------------------------------------------------------------------------
+
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PRICE_PRO = os.getenv("STRIPE_PRICE_PRO", "")
+STRIPE_PRICE_LAB = os.getenv("STRIPE_PRICE_LAB", "")
+
+
+# ------------------------------------------------------------------------------
+# Prediction plan limits
+# ------------------------------------------------------------------------------
+
+PREDICTION_FREE_PLAN_LIMIT = int(os.getenv("PREDICTION_FREE_PLAN_LIMIT", "3"))
+PREDICTION_PRO_PLAN_LIMIT = int(os.getenv("PREDICTION_PRO_PLAN_LIMIT", "100"))
+
+# 0 means unlimited for Lab.
+PREDICTION_LAB_PLAN_LIMIT = int(os.getenv("PREDICTION_LAB_PLAN_LIMIT", "0"))
 
 
 # ------------------------------------------------------------------------------

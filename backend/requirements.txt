@@ -10,3 +10,4 @@ typing_extensions==4.15.0
 tensorflow==2.20.0
 numpy==2.2.6
 pandas==2.3.3
+stripe==13.0.1
