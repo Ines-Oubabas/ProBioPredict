@@ -1,8 +1,10 @@
 """Stripe Checkout and webhook views for ProBioPredict billing."""
 
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 
 import stripe
+from stripe import SignatureVerificationError, StripeError
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -49,24 +51,49 @@ def _datetime_from_timestamp(value):
     """Convert a Stripe timestamp to a timezone-aware datetime."""
     if not value:
         return None
-    return datetime.fromtimestamp(int(value), tz=timezone.utc)
+
+    try:
+        return datetime.fromtimestamp(int(value), tz=timezone.utc)
+    except (TypeError, ValueError, OverflowError):
+        return None
 
 
 def _safe_get_nested(data, path, default=None):
     """
-    Safely get nested values from Stripe objects/dicts.
+    Safely read nested values from Stripe objects, mappings, and lists.
 
-    Stripe SDK objects behave like dict-like objects, but this helper keeps the
-    webhook logic defensive.
+    Stripe objects are dict-like, while paths may include integer indexes such
+    as ["items", "data", 0, "price", "id"]. Integer keys must be handled as
+    sequence indexes rather than attribute names.
     """
     current = data
+
     for key in path:
         if current is None:
             return default
 
-        if isinstance(current, dict):
-            current = current.get(key)
+        if isinstance(key, int):
+            if (
+                isinstance(current, Sequence)
+                and not isinstance(current, (str, bytes, bytearray))
+                and 0 <= key < len(current)
+            ):
+                current = current[key]
+                continue
+
+            return default
+
+        if isinstance(current, Mapping):
+            current = current.get(key, default)
             continue
+
+        get_method = getattr(current, "get", None)
+        if callable(get_method):
+            try:
+                current = get_method(key, default)
+                continue
+            except TypeError:
+                pass
 
         current = getattr(current, key, default)
 
@@ -81,6 +108,7 @@ class CurrentSubscriptionView(APIView):
     def get(self, request):
         """Return safe subscription data for frontend display."""
         subscription = get_or_create_user_subscription(request.user)
+
         return Response(
             SubscriptionSerializer(subscription).data,
             status=status.HTTP_200_OK,
@@ -116,7 +144,11 @@ class CreateCheckoutSessionView(APIView):
 
         if not price_id:
             return Response(
-                {"detail": f"Stripe Price ID is not configured for plan '{plan}'."},
+                {
+                    "detail": (
+                        f"Stripe Price ID is not configured for plan '{plan}'."
+                    )
+                },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
@@ -135,8 +167,11 @@ class CreateCheckoutSessionView(APIView):
                             "source": "probiopredict",
                         },
                     )
+
                     subscription.stripe_customer_id = customer["id"]
-                    subscription.save(update_fields=["stripe_customer_id", "updated_at"])
+                    subscription.save(
+                        update_fields=["stripe_customer_id", "updated_at"]
+                    )
 
                 checkout_session = stripe.checkout.Session.create(
                     mode="subscription",
@@ -165,8 +200,7 @@ class CreateCheckoutSessionView(APIView):
                     },
                     allow_promotion_codes=True,
                 )
-
-        except stripe.error.StripeError as exc:
+        except StripeError as exc:
             return Response(
                 {"detail": f"Stripe error: {str(exc)}"},
                 status=status.HTTP_502_BAD_GATEWAY,
@@ -220,14 +254,14 @@ class StripeWebhookView(APIView):
                 {"detail": "Invalid Stripe payload."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        except stripe.error.SignatureVerificationError:
+        except SignatureVerificationError:
             return Response(
                 {"detail": "Invalid Stripe signature."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        event_type = event.get("type")
-        event_object = event.get("data", {}).get("object", {})
+        event_type = _safe_get_nested(event, ["type"], "")
+        event_object = _safe_get_nested(event, ["data", "object"], {})
 
         if event_type == "checkout.session.completed":
             self._handle_checkout_session_completed(event_object)
@@ -245,15 +279,25 @@ class StripeWebhookView(APIView):
         """
         Activate or update a paid plan after Checkout completes.
 
-        The frontend success redirect is not trusted. This webhook event is the
-        source of truth.
+        The frontend success redirect is not trusted. This verified webhook event
+        is the source of truth for local subscription state.
         """
         user_id = _safe_get_nested(session, ["metadata", "user_id"])
-        plan = _safe_get_nested(session, ["metadata", "plan"], UserSubscription.PLAN_FREE)
+        if not user_id:
+            user_id = _safe_get_nested(session, ["client_reference_id"])
+
+        plan = _safe_get_nested(
+            session,
+            ["metadata", "plan"],
+            UserSubscription.PLAN_FREE,
+        )
         customer_id = _safe_get_nested(session, ["customer"], "")
         stripe_subscription_id = _safe_get_nested(session, ["subscription"], "")
 
-        if plan not in {UserSubscription.PLAN_PRO, UserSubscription.PLAN_LAB}:
+        if plan not in {
+            UserSubscription.PLAN_PRO,
+            UserSubscription.PLAN_LAB,
+        }:
             return
 
         if not user_id:
@@ -261,7 +305,7 @@ class StripeWebhookView(APIView):
 
         try:
             user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
+        except (User.DoesNotExist, TypeError, ValueError):
             return
 
         stripe_status = UserSubscription.STATUS_ACTIVE
@@ -270,30 +314,50 @@ class StripeWebhookView(APIView):
 
         if stripe_subscription_id:
             try:
-                stripe_subscription = stripe.Subscription.retrieve(stripe_subscription_id)
-                stripe_status = stripe_subscription.get("status") or stripe_status
-                current_period_end = _datetime_from_timestamp(
-                    stripe_subscription.get("current_period_end")
+                stripe_subscription = stripe.Subscription.retrieve(
+                    stripe_subscription_id
                 )
+
+                stripe_status = (
+                    _safe_get_nested(
+                        stripe_subscription,
+                        ["status"],
+                        UserSubscription.STATUS_ACTIVE,
+                    )
+                    or UserSubscription.STATUS_ACTIVE
+                )
+
+                current_period_end = _datetime_from_timestamp(
+                    _safe_get_nested(
+                        stripe_subscription,
+                        ["current_period_end"],
+                    )
+                )
+
                 price_id = _safe_get_nested(
                     stripe_subscription,
                     ["items", "data", 0, "price", "id"],
                     price_id,
                 )
-            except stripe.error.StripeError:
-                # Checkout completion is enough to keep the flow successful here.
-                # Future subscription.updated events will refresh details.
+            except StripeError:
+                # The verified checkout event still contains the user, plan,
+                # customer and subscription identifiers. A later
+                # customer.subscription.updated event will refresh details.
                 pass
 
         with transaction.atomic():
             subscription = get_or_create_user_subscription(user)
             subscription.plan = plan
             subscription.status = stripe_status
-            subscription.stripe_customer_id = customer_id or subscription.stripe_customer_id
+            subscription.stripe_customer_id = (
+                customer_id or subscription.stripe_customer_id
+            )
             subscription.stripe_subscription_id = (
                 stripe_subscription_id or subscription.stripe_subscription_id
             )
-            subscription.stripe_price_id = price_id or subscription.stripe_price_id
+            subscription.stripe_price_id = (
+                price_id or subscription.stripe_price_id
+            )
             subscription.current_period_end = current_period_end
             subscription.save(
                 update_fields=[
@@ -308,16 +372,31 @@ class StripeWebhookView(APIView):
             )
 
     def _handle_subscription_upsert(self, stripe_subscription):
-        """Create/update local subscription state from Stripe subscription events."""
-        stripe_subscription_id = stripe_subscription.get("id", "")
-        customer_id = stripe_subscription.get("customer", "")
-        stripe_status = stripe_subscription.get("status", UserSubscription.STATUS_INCOMPLETE)
+        """Create or update local state from Stripe subscription events."""
+        stripe_subscription_id = _safe_get_nested(
+            stripe_subscription,
+            ["id"],
+            "",
+        )
+        customer_id = _safe_get_nested(stripe_subscription, ["customer"], "")
+        stripe_status = _safe_get_nested(
+            stripe_subscription,
+            ["status"],
+            UserSubscription.STATUS_INCOMPLETE,
+        )
         current_period_end = _datetime_from_timestamp(
-            stripe_subscription.get("current_period_end")
+            _safe_get_nested(stripe_subscription, ["current_period_end"])
         )
 
-        user_id = _safe_get_nested(stripe_subscription, ["metadata", "user_id"])
-        plan_from_metadata = _safe_get_nested(stripe_subscription, ["metadata", "plan"], "")
+        user_id = _safe_get_nested(
+            stripe_subscription,
+            ["metadata", "user_id"],
+        )
+        plan_from_metadata = _safe_get_nested(
+            stripe_subscription,
+            ["metadata", "plan"],
+            "",
+        )
 
         price_id = _safe_get_nested(
             stripe_subscription,
@@ -326,11 +405,13 @@ class StripeWebhookView(APIView):
         )
         plan_from_price = _plan_for_price_id(price_id)
 
-        plan = (
-            plan_from_metadata
-            if plan_from_metadata in {UserSubscription.PLAN_PRO, UserSubscription.PLAN_LAB}
-            else plan_from_price
-        )
+        if plan_from_metadata in {
+            UserSubscription.PLAN_PRO,
+            UserSubscription.PLAN_LAB,
+        }:
+            plan = plan_from_metadata
+        else:
+            plan = plan_from_price
 
         subscription = None
 
@@ -338,7 +419,7 @@ class StripeWebhookView(APIView):
             try:
                 user = User.objects.get(id=user_id)
                 subscription = get_or_create_user_subscription(user)
-            except User.DoesNotExist:
+            except (User.DoesNotExist, TypeError, ValueError):
                 subscription = None
 
         if subscription is None and stripe_subscription_id:
@@ -354,12 +435,23 @@ class StripeWebhookView(APIView):
         if subscription is None:
             return
 
-        if plan not in {UserSubscription.PLAN_PRO, UserSubscription.PLAN_LAB}:
-            plan = subscription.plan if subscription.plan != UserSubscription.PLAN_FREE else UserSubscription.PLAN_PRO
+        if plan not in {
+            UserSubscription.PLAN_PRO,
+            UserSubscription.PLAN_LAB,
+        }:
+            if subscription.plan in {
+                UserSubscription.PLAN_PRO,
+                UserSubscription.PLAN_LAB,
+            }:
+                plan = subscription.plan
+            else:
+                return
 
         subscription.plan = plan
         subscription.status = stripe_status
-        subscription.stripe_customer_id = customer_id or subscription.stripe_customer_id
+        subscription.stripe_customer_id = (
+            customer_id or subscription.stripe_customer_id
+        )
         subscription.stripe_subscription_id = (
             stripe_subscription_id or subscription.stripe_subscription_id
         )
@@ -378,9 +470,13 @@ class StripeWebhookView(APIView):
         )
 
     def _handle_subscription_deleted(self, stripe_subscription):
-        """Downgrade the user to Free when Stripe subscription is deleted."""
-        stripe_subscription_id = stripe_subscription.get("id", "")
-        customer_id = stripe_subscription.get("customer", "")
+        """Downgrade the user to Free when Stripe deletes a subscription."""
+        stripe_subscription_id = _safe_get_nested(
+            stripe_subscription,
+            ["id"],
+            "",
+        )
+        customer_id = _safe_get_nested(stripe_subscription, ["customer"], "")
 
         subscription = None
 
@@ -399,9 +495,11 @@ class StripeWebhookView(APIView):
 
         subscription.plan = UserSubscription.PLAN_FREE
         subscription.status = UserSubscription.STATUS_CANCELED
-        subscription.stripe_subscription_id = stripe_subscription_id or subscription.stripe_subscription_id
+        subscription.stripe_subscription_id = (
+            stripe_subscription_id or subscription.stripe_subscription_id
+        )
         subscription.current_period_end = _datetime_from_timestamp(
-            stripe_subscription.get("current_period_end")
+            _safe_get_nested(stripe_subscription, ["current_period_end"])
         )
         subscription.save(
             update_fields=[

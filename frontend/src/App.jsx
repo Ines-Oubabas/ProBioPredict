@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import { isAuthenticated } from './services/authApi'
+import BillingCancel from './pages/BillingCancel'
+import BillingSuccess from './pages/BillingSuccess'
 import Contact from './pages/Contact'
 import Dashboard from './pages/Dashboard'
 import History from './pages/History'
@@ -15,6 +17,7 @@ import './App.css'
 
 function PublicOnlyRoute({ children }) {
   if (isAuthenticated()) return <Navigate to="/dashboard" replace />
+
   return children
 }
 
@@ -25,20 +28,36 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/premium" element={<Premium />} />
         <Route path="/contact" element={<Contact />} />
+
         <Route
           path="/login"
-          element={<PublicOnlyRoute><Login /></PublicOnlyRoute>}
+          element={(
+            <PublicOnlyRoute>
+              <Login />
+            </PublicOnlyRoute>
+          )}
         />
+
         <Route
           path="/register"
-          element={<PublicOnlyRoute><Register /></PublicOnlyRoute>}
+          element={(
+            <PublicOnlyRoute>
+              <Register />
+            </PublicOnlyRoute>
+          )}
         />
+
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/prediction" element={<PredictionForm />} />
           <Route path="/prediction-result" element={<PredictionResult />} />
-          <Route path="/prediction-result/:predictionId" element={<PredictionResult />} />
+          <Route
+            path="/prediction-result/:predictionId"
+            element={<PredictionResult />}
+          />
           <Route path="/history" element={<History />} />
+          <Route path="/billing/success" element={<BillingSuccess />} />
+          <Route path="/billing/cancel" element={<BillingCancel />} />
         </Route>
       </Route>
 
