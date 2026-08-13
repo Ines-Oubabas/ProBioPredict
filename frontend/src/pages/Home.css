@@ -1,0 +1,779 @@
+/* ==========================================================================
+   ProBioPredict Home
+   All selectors are scoped to .home-immersive to avoid affecting other pages.
+   ========================================================================== */
+
+.home-immersive {
+  --home-header-offset: 104px;
+  --home-content-width: 1380px;
+  --home-card-border: rgba(126, 231, 199, 0.14);
+  --home-card-background: rgba(15, 33, 52, 0.76);
+  --home-card-background-strong: rgba(17, 38, 58, 0.86);
+
+  position: relative;
+  display: grid;
+  gap: 0;
+  overflow: clip;
+  isolation: isolate;
+}
+
+.home-immersive::before {
+  opacity: 0.72;
+}
+
+/* Hero */
+
+.home-immersive .home-modern-hero {
+  min-height: clamp(540px, 76vh, 700px);
+  animation: none;
+  background-position: center;
+  background-size: cover;
+  isolation: isolate;
+}
+
+.home-immersive .home-modern-hero-overlay {
+  background:
+    radial-gradient(
+      680px 320px at 24% 35%,
+      rgba(20, 184, 166, 0.13),
+      transparent 72%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(5, 15, 27, 0.88) 0%,
+      rgba(5, 15, 27, 0.68) 33%,
+      rgba(5, 15, 27, 0.2) 62%,
+      rgba(5, 15, 27, 0.06) 100%
+    );
+}
+
+.home-immersive .home-modern-hero::after {
+  opacity: 0.2;
+  mask-image: radial-gradient(
+    circle at 70% 42%,
+    black 8%,
+    transparent 72%
+  );
+}
+
+.home-immersive .home-modern-hero-content {
+  position: relative;
+  z-index: 2;
+  min-height: inherit;
+  display: flex;
+  align-items: center;
+  padding:
+    clamp(2.4rem, 5.5vw, 4.8rem)
+    clamp(1.2rem, 4.5vw, 4rem);
+}
+
+.home-immersive .home-modern-hero-copy {
+  width: min(620px, 53%);
+  display: grid;
+  gap: 1rem;
+}
+
+.home-immersive .home-modern-hero-copy .hero-kicker {
+  margin: 0;
+  background: rgba(8, 41, 52, 0.68);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.home-immersive .home-modern-hero-copy .hero-title {
+  max-width: 12ch;
+  margin: 0;
+  font-size: clamp(2.5rem, 4.4vw, 4.25rem);
+  line-height: 1;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.home-immersive .home-modern-hero-copy .hero-subtitle {
+  max-width: 53ch;
+  margin: 0;
+  color: #d9e5ef;
+  font-size: clamp(1rem, 1.25vw, 1.12rem);
+  line-height: 1.62;
+  text-wrap: pretty;
+}
+
+.home-immersive .home-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  margin-top: 0.18rem;
+}
+
+.home-immersive .home-hero-actions .btn,
+.home-immersive .home-final-actions .btn {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 1.1rem;
+}
+
+/* Facts and internal navigation */
+
+.home-immersive .home-context-bar {
+  width: calc(100% - clamp(1rem, 3vw, 2.4rem));
+  max-width: var(--home-content-width);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  margin: 0.8rem auto 0;
+  padding: 0.68rem 0.78rem;
+  border: 1px solid rgba(126, 231, 199, 0.12);
+  border-radius: 15px;
+  background: rgba(12, 28, 45, 0.74);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.home-immersive .home-fact-list,
+.home-immersive .home-section-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.home-immersive .home-fact-list {
+  gap: 0.45rem;
+}
+
+.home-immersive .home-fact-badge {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.32rem 0.62rem;
+  border: 1px solid rgba(126, 231, 199, 0.14);
+  border-radius: 999px;
+  color: #d8ebe8;
+  background: rgba(20, 184, 166, 0.055);
+  font-size: 0.81rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.home-immersive .home-fact-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: #57dbc9;
+  box-shadow: 0 0 8px rgba(87, 219, 201, 0.42);
+}
+
+.home-immersive .home-section-nav {
+  justify-content: flex-end;
+  gap: 0.08rem;
+}
+
+.home-immersive .home-section-nav a {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.38rem 0.62rem;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: #b7c8d8;
+  font-size: 0.83rem;
+  line-height: 1.2;
+  transition:
+    color 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.home-immersive .home-section-nav a:hover {
+  color: #effffc;
+  border-color: rgba(126, 231, 199, 0.14);
+  background: rgba(126, 231, 199, 0.05);
+}
+
+.home-immersive .home-section-nav a:focus-visible,
+.home-immersive a.btn:focus-visible {
+  outline: 3px solid rgba(126, 231, 199, 0.9);
+  outline-offset: 3px;
+}
+
+/* Sections */
+
+.home-immersive .home-content-section,
+.home-immersive .home-final-section {
+  scroll-margin-top: var(--home-header-offset);
+}
+
+.home-immersive .home-content-section {
+  position: relative;
+  margin-top: 0;
+  padding:
+    clamp(2.7rem, 4.6vw, 4rem)
+    clamp(1rem, 2.5vw, 2.1rem);
+  border: 0;
+  border-radius: 0;
+}
+
+.home-immersive .home-content-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(126, 231, 199, 0.15),
+    transparent
+  );
+}
+
+.home-immersive .home-section-primary {
+  background:
+    radial-gradient(
+      520px 180px at 5% 14%,
+      rgba(20, 184, 166, 0.045),
+      transparent 74%
+    );
+}
+
+.home-immersive .home-section-secondary {
+  background:
+    radial-gradient(
+      600px 210px at 94% 18%,
+      rgba(34, 211, 238, 0.04),
+      transparent 74%
+    ),
+    rgba(13, 27, 42, 0.18);
+}
+
+.home-immersive .home-section-inner {
+  width: min(var(--home-content-width), 100%);
+  margin: 0 auto;
+}
+
+.home-immersive .home-section-heading {
+  max-width: 820px;
+  margin-bottom: 1.15rem;
+}
+
+.home-immersive .home-section-heading .home-section-kicker {
+  margin: 0 0 0.42rem;
+}
+
+.home-immersive .home-section-heading .section-title {
+  margin: 0;
+  font-size: clamp(1.65rem, 2.45vw, 2.35rem);
+  line-height: 1.16;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.home-immersive .home-section-heading .section-subtitle {
+  max-width: 68ch;
+  margin: 0.58rem 0 0;
+  line-height: 1.62;
+  text-wrap: pretty;
+}
+
+/* Workflow */
+
+.home-immersive .home-workflow {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.72rem;
+}
+
+.home-immersive .home-workflow::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: 25px;
+  left: 7%;
+  right: 7%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(70, 214, 195, 0.4) 12%,
+    rgba(70, 214, 195, 0.2) 88%,
+    transparent
+  );
+}
+
+.home-immersive .home-workflow-card {
+  position: relative;
+  z-index: 1;
+  min-height: 184px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0.88rem;
+  border: 1px solid rgba(126, 231, 199, 0.11);
+  border-radius: 15px;
+  background: var(--home-card-background);
+  box-shadow: 0 10px 23px rgba(0, 0, 0, 0.14);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.home-immersive .home-workflow-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(126, 231, 199, 0.22);
+  box-shadow: 0 13px 27px rgba(0, 0, 0, 0.19);
+}
+
+.home-immersive .home-step-number {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  margin-bottom: 0.7rem;
+  border: 1px solid rgba(70, 214, 195, 0.42);
+  border-radius: 13px;
+  color: #eafffb;
+  background: rgba(20, 184, 166, 0.16);
+  box-shadow: 0 0 0 5px rgba(8, 17, 32, 0.82);
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.home-immersive .home-workflow-copy {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.home-immersive .home-workflow-card h3 {
+  margin: 0;
+  color: #f5fbff;
+  font-size: 1.04rem;
+  line-height: 1.3;
+}
+
+.home-immersive .home-workflow-card p {
+  margin: 0;
+  color: #b8c9d9;
+  line-height: 1.56;
+  text-wrap: pretty;
+}
+
+/* Feature cards */
+
+.home-immersive .home-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.78rem;
+}
+
+.home-immersive .home-feature-card {
+  position: relative;
+  min-height: 205px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: hidden;
+  padding: 1rem;
+  border: 1px solid var(--home-card-border);
+  border-radius: 16px;
+  background: var(--home-card-background-strong);
+  box-shadow: 0 11px 25px rgba(0, 0, 0, 0.15);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.home-immersive .home-feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 1rem;
+  width: 52px;
+  height: 2px;
+  border-radius: 999px;
+  background: #39cbb8;
+}
+
+.home-immersive .home-feature-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(126, 231, 199, 0.24);
+  box-shadow: 0 15px 29px rgba(0, 0, 0, 0.2);
+}
+
+.home-immersive .home-feature-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  margin: 0.2rem 0 0.78rem;
+  border: 1px solid rgba(70, 214, 195, 0.32);
+  border-radius: 12px;
+  color: #dffff9;
+  background: rgba(20, 184, 166, 0.12);
+}
+
+.home-immersive .home-feature-icon .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.home-immersive .home-feature-card h3 {
+  margin: 0;
+  color: #f5fbff;
+  font-size: 1.05rem;
+  line-height: 1.3;
+}
+
+.home-immersive .home-feature-card p {
+  margin: 0.5rem 0 0;
+  color: #bdccda;
+  line-height: 1.58;
+  text-wrap: pretty;
+}
+
+.home-immersive .home-account-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.62rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+/* Final CTA */
+
+.home-immersive .home-final-section {
+  padding:
+    clamp(2.4rem, 4vw, 3.4rem)
+    clamp(1rem, 2.5vw, 2.1rem)
+    clamp(0.7rem, 1.5vw, 1.2rem);
+}
+
+.home-immersive .home-final-card {
+  width: min(1080px, 100%);
+  margin: 0 auto;
+  padding: clamp(1.45rem, 3vw, 2.25rem);
+  border: 1px solid rgba(126, 231, 199, 0.13);
+  border-radius: 20px;
+  background:
+    radial-gradient(
+      440px 145px at 50% 0%,
+      rgba(20, 184, 166, 0.11),
+      transparent 76%
+    ),
+    rgba(14, 31, 49, 0.82);
+  box-shadow: 0 15px 34px rgba(0, 0, 0, 0.19);
+  text-align: center;
+}
+
+.home-immersive .home-final-icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 0.72rem;
+  border: 1px solid rgba(70, 214, 195, 0.3);
+  border-radius: 14px;
+  color: #eafffb;
+  background: rgba(20, 184, 166, 0.11);
+}
+
+.home-immersive .home-final-card .section-title {
+  margin: 0;
+  font-size: clamp(1.65rem, 2.5vw, 2.25rem);
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.home-immersive .home-final-card .section-subtitle {
+  max-width: 680px;
+  margin: 0.62rem auto 0;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.home-immersive .home-final-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+/* Tablet */
+
+@media (max-width: 1200px) {
+  .home-immersive .home-context-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .home-immersive .home-section-nav {
+    justify-content: flex-start;
+  }
+
+  .home-immersive .home-workflow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-immersive .home-workflow::before {
+    display: none;
+  }
+
+  .home-immersive .home-workflow-card {
+    min-height: 170px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .home-immersive {
+    --home-header-offset: 96px;
+  }
+
+  .home-immersive .home-modern-hero {
+    min-height: 575px;
+    background-position: 60% center;
+  }
+
+  .home-immersive .home-modern-hero-content {
+    padding: 3rem 1.4rem;
+  }
+
+  .home-immersive .home-modern-hero-copy {
+    width: min(610px, 67%);
+  }
+
+  .home-immersive .home-modern-hero-copy .hero-title {
+    font-size: clamp(2.25rem, 5.7vw, 3.5rem);
+  }
+
+  .home-immersive .home-content-section {
+    padding-block: 3rem;
+  }
+}
+
+/* Mobile navigation breakpoint matches the global Navbar breakpoint. */
+
+@media (max-width: 980px) {
+  .home-immersive {
+    --home-header-offset: 92px;
+  }
+
+  .home-immersive .home-modern-hero {
+    min-height: 555px;
+    background-position: 64% center;
+  }
+
+  .home-immersive .home-modern-hero-overlay {
+    background: linear-gradient(
+      90deg,
+      rgba(5, 15, 27, 0.91) 0%,
+      rgba(5, 15, 27, 0.72) 45%,
+      rgba(5, 15, 27, 0.23) 100%
+    );
+  }
+
+  .home-immersive .home-modern-hero-content {
+    align-items: flex-end;
+    padding: 2.6rem 1.05rem 3rem;
+  }
+
+  .home-immersive .home-modern-hero-copy {
+    width: min(600px, 82%);
+  }
+}
+
+@media (max-width: 768px) {
+  .home-immersive .home-modern-hero {
+    min-height: 540px;
+    background-position: 66% center;
+  }
+
+  .home-immersive .home-modern-hero-copy {
+    width: min(590px, 90%);
+    gap: 0.82rem;
+  }
+
+  .home-immersive .home-modern-hero-copy .hero-title {
+    max-width: 13ch;
+    font-size: clamp(2.05rem, 8.2vw, 3rem);
+  }
+
+  .home-immersive .home-context-bar {
+    width: calc(100% - 1rem);
+    padding: 0.66rem;
+  }
+
+  .home-immersive .home-content-section {
+    padding: 2.55rem 0.85rem;
+  }
+
+  .home-immersive .home-content-section::before {
+    left: 4%;
+    right: 4%;
+  }
+
+  .home-immersive .home-workflow,
+  .home-immersive .home-feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-immersive .home-workflow-card,
+  .home-immersive .home-feature-card {
+    min-height: 0;
+  }
+
+  .home-immersive .home-workflow-card {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.78rem;
+  }
+
+  .home-immersive .home-step-number {
+    grid-row: 1;
+    margin: 0;
+  }
+
+  .home-immersive .home-final-section {
+    padding: 2.25rem 0.85rem 0.65rem;
+  }
+}
+
+/* Small mobile */
+
+@media (max-width: 520px) {
+  .home-immersive {
+    --home-header-offset: 88px;
+  }
+
+  .home-immersive .home-modern-hero {
+    min-height: 570px;
+    background-position: 69% center;
+  }
+
+  .home-immersive .home-modern-hero-overlay {
+    background: linear-gradient(
+      180deg,
+      rgba(5, 15, 27, 0.22) 0%,
+      rgba(5, 15, 27, 0.6) 40%,
+      rgba(5, 15, 27, 0.94) 100%
+    );
+  }
+
+  .home-immersive .home-modern-hero-content {
+    align-items: flex-end;
+    padding: 2rem 0.9rem 2.4rem;
+  }
+
+  .home-immersive .home-modern-hero-copy {
+    width: 100%;
+  }
+
+  .home-immersive .home-modern-hero-copy .hero-title {
+    max-width: 14ch;
+    font-size: clamp(2rem, 10.7vw, 2.65rem);
+    line-height: 1.02;
+  }
+
+  .home-immersive .home-modern-hero-copy .hero-subtitle {
+    font-size: 0.95rem;
+    line-height: 1.54;
+  }
+
+  .home-immersive .home-hero-actions {
+    align-items: stretch;
+  }
+
+  .home-immersive .home-hero-actions .btn {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .home-immersive .home-fact-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .home-immersive .home-fact-badge {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .home-immersive .home-section-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .home-immersive .home-section-nav a {
+    justify-content: center;
+    border-color: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.018);
+    text-align: center;
+  }
+
+  .home-immersive .home-section-heading {
+    margin-bottom: 1rem;
+  }
+
+  .home-immersive .home-section-heading .section-title {
+    font-size: 1.62rem;
+  }
+
+  .home-immersive .home-workflow-card {
+    grid-template-columns: 44px 1fr;
+    padding: 0.82rem;
+  }
+
+  .home-immersive .home-step-number {
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
+  }
+
+  .home-immersive .home-feature-card {
+    padding: 0.92rem;
+  }
+
+  .home-immersive .home-account-actions,
+  .home-immersive .home-final-actions {
+    align-items: stretch;
+  }
+
+  .home-immersive .home-account-actions .btn,
+  .home-immersive .home-final-actions .btn {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .home-immersive .home-final-card {
+    padding: 1.35rem 0.92rem;
+    border-radius: 17px;
+  }
+}
+
+/* Reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .home-immersive *,
+  .home-immersive *::before,
+  .home-immersive *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

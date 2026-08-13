@@ -1,0 +1,269 @@
+/* ==========================================================================
+   Global compact Navbar
+   Loaded by Navbar.jsx and scoped through .app-header-compact.
+   ========================================================================== */
+
+.app-header.app-header-compact {
+  position: sticky;
+  top: 8px;
+  z-index: 80;
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(0.75rem, 1.6vw, 1.2rem);
+  margin-bottom: 0.58rem;
+  padding: 0.68rem 1rem;
+  border-color: rgba(126, 231, 199, 0.12);
+  background: linear-gradient(
+    145deg,
+    rgba(9, 23, 38, 0.9),
+    rgba(12, 30, 48, 0.82)
+  );
+  box-shadow:
+    0 9px 26px rgba(0, 0, 0, 0.23),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(16px) saturate(125%);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
+}
+
+.app-header-compact .brand {
+  font-size: clamp(1.72rem, 2.25vw, 2.2rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+}
+
+.app-header-compact .nav-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.12rem;
+  flex-wrap: wrap;
+}
+
+.app-header-compact .nav-link {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.42rem 0.72rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: #d4e0ec;
+  font-size: 0.93rem;
+  line-height: 1.2;
+  transition:
+    color 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.app-header-compact .nav-link:hover {
+  color: #f0fffc;
+  border-color: rgba(126, 231, 199, 0.19);
+  background: rgba(20, 184, 166, 0.055);
+  box-shadow: none;
+}
+
+.app-header-compact .nav-link.active {
+  color: #effffc;
+  border-color: rgba(126, 231, 199, 0.3);
+  background: rgba(20, 184, 166, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(126, 231, 199, 0.025);
+}
+
+.app-header-compact .auth-links {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.app-header-compact .auth-links .btn {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.48rem 0.82rem;
+}
+
+.app-header-compact .navbar-register-button {
+  min-width: 94px;
+  box-shadow:
+    0 7px 18px rgba(20, 184, 166, 0.2),
+    0 0 12px rgba(20, 184, 166, 0.1);
+}
+
+.app-header-compact .navbar-user-label {
+  max-width: 230px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-header-compact .menu-toggle {
+  min-width: 42px;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  color: #e6f4fb;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.app-header-compact .brand:focus-visible,
+.app-header-compact .nav-link:focus-visible,
+.app-header-compact .btn:focus-visible,
+.app-header-compact .menu-toggle:focus-visible {
+  outline: 3px solid rgba(126, 231, 199, 0.9);
+  outline-offset: 3px;
+}
+
+/* Keep the compact desktop header usable when all authenticated links exist. */
+
+@media (max-width: 1220px) and (min-width: 981px) {
+  .app-header.app-header-compact {
+    gap: 0.55rem;
+    padding-inline: 0.82rem;
+  }
+
+  .app-header-compact .brand {
+    font-size: 1.75rem;
+  }
+
+  .app-header-compact .nav-link {
+    padding-inline: 0.52rem;
+    font-size: 0.88rem;
+  }
+
+  .app-header-compact .navbar-user-label {
+    max-width: 150px;
+  }
+}
+
+/* Mobile layout keeps the existing 980px project breakpoint. */
+
+@media (max-width: 980px) {
+  .app-header.app-header-compact {
+    min-height: 66px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'brand toggle'
+      'nav nav'
+      'auth auth';
+    gap: 0.48rem 0.75rem;
+    margin-bottom: 0.45rem;
+    padding: 0.62rem 0.78rem;
+  }
+
+  .app-header-compact .brand {
+    grid-area: brand;
+    font-size: 1.72rem;
+  }
+
+  .app-header-compact .menu-toggle {
+    display: inline-flex;
+    grid-area: toggle;
+    justify-self: end;
+  }
+
+  .app-header-compact .nav-links,
+  .app-header-compact .auth-links {
+    display: none;
+  }
+
+  .app-header-compact .nav-links.open {
+    grid-area: nav;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem;
+    padding-top: 0.48rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .app-header-compact .auth-links.open {
+    grid-area: auth;
+    width: 100%;
+    display: flex;
+    justify-content: flex-start;
+    gap: 0.45rem;
+    padding-top: 0.1rem;
+  }
+
+  .app-header-compact .nav-link {
+    width: 100%;
+    min-height: 40px;
+    padding-inline: 0.45rem;
+    border-radius: 10px;
+    text-align: center;
+  }
+
+  .app-header-compact .navbar-user-label {
+    max-width: min(50vw, 260px);
+  }
+}
+
+@media (max-width: 620px) {
+  .app-header.app-header-compact {
+    top: 5px;
+    border-radius: 14px;
+  }
+
+  .app-header-compact .brand {
+    font-size: clamp(1.45rem, 7vw, 1.68rem);
+  }
+
+  .app-header-compact .nav-links.open {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-header-compact .auth-links.open {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .app-header-compact .auth-links.open .btn {
+    flex: 1 1 130px;
+  }
+
+  .app-header-compact .navbar-user-label {
+    width: 100%;
+    max-width: none;
+    padding: 0.2rem 0;
+  }
+}
+
+@media (max-width: 380px) {
+  .app-header.app-header-compact {
+    padding-inline: 0.65rem;
+  }
+
+  .app-header-compact .brand {
+    font-size: 1.42rem;
+  }
+
+  .app-header-compact .nav-links.open {
+    grid-template-columns: 1fr;
+  }
+
+  .app-header-compact .auth-links.open .btn {
+    width: 100%;
+    flex-basis: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-header-compact *,
+  .app-header-compact *::before,
+  .app-header-compact *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
