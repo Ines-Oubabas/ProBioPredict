@@ -4,17 +4,26 @@ import { deletePrediction, fetchPredictionHistory, pinPrediction } from '../serv
 
 const FILTERS = ['All', 'Probiotic', 'Non-probiotic']
 
+function isResultObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
 function normalizeLabel(predictedClass) {
-  const lower = String(predictedClass || '').toLowerCase()
-  // D'abord vérifier 'non-probiotic'
-  if (lower === 'non-probiotic' || lower.includes('non-probiotic') || lower === 'non probiotic') {
+  const lower = String(predictedClass || '').trim().toLowerCase()
+
+  if (
+    lower.includes('non-probiotic') ||
+    lower.includes('non probiotic') ||
+    lower.includes('nonprobiotic')
+  ) {
     return 'Non-probiotic'
   }
-  // Ensuite vérifier 'probiotic'
-  if (lower === 'probiotic' || lower.includes('probiotic') || lower.includes('safe')) {
+
+  if (lower.includes('probiotic') || lower.includes('safe')) {
     return 'Probiotic'
   }
-  return 'Non-probiotic'
+
+  return null
 }
 
 function formatDate(value) {
@@ -23,7 +32,14 @@ function formatDate(value) {
   return date.toISOString().slice(0, 10)
 }
 
+function formatConfidence(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—'
+  return `${Math.round(value * 100)}%`
+}
+
 function buildDownloadPayload(prediction) {
+  const result = prediction.result
+
   return {
     exported_at: new Date().toISOString(),
     source: 'ProBioPredict',
@@ -37,17 +53,22 @@ function buildDownloadPayload(prediction) {
       submitted_at: prediction.submitted_at,
       is_pinned: prediction.is_pinned,
     },
-    results: (prediction.results || []).map((r) => ({
-      sequence_id: r.sequence_id,
-      predicted_class: r.predicted_class,
-      confidence: r.confidence,
-    })),
+    result: {
+      id: result.id,
+      sequence_id: result.sequence_id,
+      predicted_class: result.predicted_class,
+      confidence: result.confidence,
+      created_at: result.created_at,
+    },
     message: 'Prediction loaded from history.',
   }
 }
 
 function downloadJson(filename, payload) {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' })
+  const blob = new Blob(
+    [JSON.stringify(payload, null, 2)],
+    { type: 'application/json;charset=utf-8' }
+  )
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
@@ -58,9 +79,21 @@ function downloadJson(filename, payload) {
   URL.revokeObjectURL(url)
 }
 
+function noResultMessage(prediction) {
+  if (prediction.status === 'failed') {
+    return 'This prediction failed. No result is available.'
+  }
+
+  if (prediction.status === 'pending') {
+    return 'This prediction is pending. No result is available yet.'
+  }
+
+  return 'No result is available for this prediction.'
+}
+
 function History() {
   const [activeFilter, setActiveFilter] = useState('All')
-  const [groups, setGroups] = useState([])
+  const [predictions, setPredictions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionState, setActionState] = useState({
@@ -68,48 +101,65 @@ function History() {
     deleteId: null,
   })
 
-  async function loadHistory() {
-    setLoading(true)
-    setError('')
-    try {
-      const response = await fetchPredictionHistory()
-      const predictions = Array.isArray(response?.predictions) ? response.predictions : []
-      setGroups(predictions)
-    } catch (e) {
-      setError(e?.message || 'Failed to load prediction history.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
+    let mounted = true
+
+    async function loadHistory() {
+      setLoading(true)
+      setError('')
+
+      try {
+        const response = await fetchPredictionHistory()
+        if (!mounted) return
+
+        setPredictions(
+          Array.isArray(response?.predictions) ? response.predictions : []
+        )
+      } catch (e) {
+        if (!mounted) return
+        setError(e?.message || 'Failed to load prediction history.')
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
     loadHistory()
+
+    return () => {
+      mounted = false
+    }
   }, [])
 
-  const filteredGroups = useMemo(() => {
-    if (activeFilter === 'All') return groups
-    return groups
-      .map((prediction) => ({
-        ...prediction,
-        results: (prediction.results || []).filter((r) => normalizeLabel(r.predicted_class) === activeFilter),
-      }))
-      .filter((p) => p.results.length > 0)
-  }, [groups, activeFilter])
+  const filteredPredictions = useMemo(() => {
+    if (activeFilter === 'All') return predictions
+
+    return predictions.filter((prediction) => (
+      isResultObject(prediction.result) &&
+      normalizeLabel(prediction.result.predicted_class) === activeFilter
+    ))
+  }, [predictions, activeFilter])
 
   async function handleTogglePin(prediction) {
     if (!prediction || actionState.pinId || actionState.deleteId) return
+
     setActionState((prev) => ({ ...prev, pinId: prediction.id }))
     setError('')
+
     try {
       await pinPrediction(prediction.id, !prediction.is_pinned)
-      setGroups((prev) =>
+
+      setPredictions((prev) => (
         prev
-          .map((item) => (item.id === prediction.id ? { ...item, is_pinned: !item.is_pinned } : item))
+          .map((item) => (
+            item.id === prediction.id
+              ? { ...item, is_pinned: !prediction.is_pinned }
+              : item
+          ))
           .sort((a, b) => {
             if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1
             return new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime()
           })
-      )
+      ))
     } catch (e) {
       setError(e?.message || 'Pin action failed.')
     } finally {
@@ -119,14 +169,20 @@ function History() {
 
   async function handleDelete(prediction) {
     if (!prediction || actionState.pinId || actionState.deleteId) return
-    const confirmed = window.confirm(`Delete ${prediction.display_label || `Prediction #${prediction.id}`}?`)
+
+    const confirmed = window.confirm(
+      `Delete ${prediction.display_label || `Prediction #${prediction.id}`}?`
+    )
     if (!confirmed) return
 
     setActionState((prev) => ({ ...prev, deleteId: prediction.id }))
     setError('')
+
     try {
       await deletePrediction(prediction.id)
-      setGroups((prev) => prev.filter((item) => item.id !== prediction.id))
+      setPredictions((prev) => (
+        prev.filter((item) => item.id !== prediction.id)
+      ))
     } catch (e) {
       setError(e?.message || 'Delete action failed.')
     } finally {
@@ -135,10 +191,14 @@ function History() {
   }
 
   function handleDownload(prediction) {
+    if (!isResultObject(prediction?.result)) return
+
     const payload = buildDownloadPayload(prediction)
     const filename = `probio-predict-result-${prediction.id}.json`
     downloadJson(filename, payload)
   }
+
+  const actionInProgress = Boolean(actionState.pinId || actionState.deleteId)
 
   return (
     <section className="page-shell">
@@ -147,86 +207,141 @@ function History() {
         <p>Review previous analyses in an organized product-style history.</p>
 
         <div className="filter-row">
-          {FILTERS.map((f) => (
+          {FILTERS.map((filter) => (
             <button
-              key={f}
+              key={filter}
               type="button"
-              className={`btn ${activeFilter === f ? 'btn-accent' : 'btn-ghost'}`}
-              onClick={() => setActiveFilter(f)}
+              className={`btn ${activeFilter === filter ? 'btn-accent' : 'btn-ghost'}`}
+              onClick={() => setActiveFilter(filter)}
             >
-              {f}
+              {filter}
             </button>
           ))}
         </div>
 
         {loading ? <p className="muted">Loading history...</p> : null}
-        {error ? <p role="alert" style={{ color: '#ffb4b4' }}>{error}</p> : null}
-
-        {!loading && !error && filteredGroups.length === 0 ? (
-          <p className="muted">No predictions found yet. Submit a CSV file to start building your history.</p>
+        {error ? (
+          <p role="alert" style={{ color: '#ffb4b4' }}>{error}</p>
         ) : null}
 
-        {!loading && !error && filteredGroups.map((prediction) => (
-          <article key={prediction.id} className="card card-soft section-space">
-            <div className="history-header">
-              <div>
-                <p>
-                  <strong>{prediction.display_label || `Prediction #${prediction.id}`}</strong> · {prediction.file_name}
-                  {prediction.is_pinned ? <span className="badge-pinned" style={{ marginLeft: '0.55rem' }}>Pinned</span> : null}
-                </p>
-                <p className="muted">
-                  {formatDate(prediction.submitted_at)} · {prediction.row_count} rows · {prediction.status}
-                </p>
+        {!loading && !error && filteredPredictions.length === 0 ? (
+          <p className="muted">
+            {predictions.length === 0
+              ? 'No predictions found yet. Submit a CSV file containing one DNA sequence to start building your history.'
+              : 'No predictions match this filter.'}
+          </p>
+        ) : null}
+
+        {!loading && !error && filteredPredictions.map((prediction) => {
+          const result = isResultObject(prediction.result)
+            ? prediction.result
+            : null
+          const label = result
+            ? normalizeLabel(result.predicted_class)
+            : null
+
+          const badgeClass = label === 'Probiotic'
+            ? 'badge-pill badge-probiotic'
+            : label === 'Non-probiotic'
+              ? 'badge-pill badge-non'
+              : 'badge-pill'
+
+          return (
+            <article
+              key={prediction.id}
+              className="card card-soft section-space"
+            >
+              <div className="history-header">
+                <div>
+                  <p>
+                    <strong>
+                      {prediction.display_label || `Prediction #${prediction.id}`}
+                    </strong>
+                    {' · '}
+                    {prediction.file_name}
+                    {prediction.is_pinned ? (
+                      <span
+                        className="badge-pinned"
+                        style={{ marginLeft: '0.55rem' }}
+                      >
+                        Pinned
+                      </span>
+                    ) : null}
+                  </p>
+
+                  <p className="muted">
+                    {formatDate(prediction.submitted_at)}
+                    {' · '}
+                    {prediction.row_count}
+                    {' '}
+                    {prediction.row_count === 1 ? 'sequence' : 'sequences'}
+                    {' · '}
+                    {prediction.status}
+                  </p>
+                </div>
+
+                <div className="history-actions">
+                  <Link
+                    to={`/prediction-result/${prediction.id}`}
+                    className="btn btn-ghost"
+                  >
+                    View result
+                  </Link>
+
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => handleDownload(prediction)}
+                    disabled={!result}
+                  >
+                    Download
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => handleTogglePin(prediction)}
+                    disabled={actionInProgress}
+                  >
+                    {actionState.pinId === prediction.id
+                      ? 'Saving...'
+                      : prediction.is_pinned ? 'Unpin' : 'Pin'}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={() => handleDelete(prediction)}
+                    disabled={actionInProgress}
+                  >
+                    {actionState.deleteId === prediction.id
+                      ? 'Deleting...'
+                      : 'Delete'}
+                  </button>
+                </div>
               </div>
 
-              <div className="history-actions">
-                <Link to={`/prediction-result/${prediction.id}`} className="btn btn-ghost">
-                  View result
-                </Link>
-
-                <button type="button" className="btn btn-ghost" onClick={() => handleDownload(prediction)}>
-                  Download
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => handleTogglePin(prediction)}
-                  disabled={actionState.pinId === prediction.id || actionState.deleteId === prediction.id}
-                >
-                  {actionState.pinId === prediction.id ? 'Saving...' : prediction.is_pinned ? 'Unpin' : 'Pin'}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={() => handleDelete(prediction)}
-                  disabled={actionState.deleteId === prediction.id || actionState.pinId === prediction.id}
-                >
-                  {actionState.deleteId === prediction.id ? 'Deleting...' : 'Delete'}
-                </button>
-              </div>
-            </div>
-
-            <ul className="table-list">
-              {(prediction.results || []).map((result) => {
-                const label = normalizeLabel(result.predicted_class)
-                return (
-                  <li key={result.id}>
-                    <span>{result.sequence_id}</span>
+              {result ? (
+                <ul className="table-list">
+                  <li>
+                    <span>{result.sequence_id || '—'}</span>
                     <span>
-                      <span className={`badge-pill ${label === 'Probiotic' ? 'badge-probiotic' : 'badge-non'}`}>
-                        {label}
+                      <span className={badgeClass}>
+                        {label || result.predicted_class || 'Unknown'}
                       </span>
                     </span>
-                    <span>{`${Math.round((result.confidence || 0) * 100)}%`}</span>
+                    <span>{formatConfidence(result.confidence)}</span>
                     <span>{formatDate(prediction.submitted_at)}</span>
                   </li>
-                )
-              })}
-            </ul>
-          </article>
-        ))}
+                </ul>
+              ) : (
+                <p className="muted" role="status">
+                  {noResultMessage(prediction)}
+                </p>
+              )}
+            </article>
+          )
+        })}
       </section>
     </section>
   )

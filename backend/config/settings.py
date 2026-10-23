@@ -10,11 +10,8 @@ import os
 
 from dotenv import load_dotenv
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables from backend/.env (if file exists).
-# This is non-strict: runserver still works with fallback defaults.
 load_dotenv(BASE_DIR / ".env")
 
 
@@ -44,11 +41,8 @@ def env_list(name, default=""):
 
 DEBUG = env_bool("DJANGO_DEBUG", True)
 
-# Keep local compatibility; override from .env when needed.
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 
-# In production, SECRET_KEY must be explicitly provided.
-# For local dev only, allow a fallback to avoid breaking first run.
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 if not SECRET_KEY:
     if DEBUG:
@@ -74,11 +68,10 @@ INSTALLED_APPS = [
     "predictions",
     "billing",
     # Progressive strategy:
-    # keep disabled by default in current stable flow; enable with env toggle when ready.
+    # keep disabled by default; enable with env toggle when ready.
     # "rest_framework_simplejwt.token_blacklist",
 ]
 
-# Optional progressive activation of JWT blacklist app via env.
 if env_bool("JWT_ENABLE_TOKEN_BLACKLIST_APP", False):
     INSTALLED_APPS.append("rest_framework_simplejwt.token_blacklist")
 
@@ -159,21 +152,17 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
-    # Anti brute-force baseline + future per-view scoped throttles
     "DEFAULT_THROTTLE_CLASSES": (
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
         "rest_framework.throttling.ScopedRateThrottle",
     ),
     "DEFAULT_THROTTLE_RATES": {
-        # Global baselines
         "anon": os.getenv("DRF_THROTTLE_ANON", "60/min"),
         "user": os.getenv("DRF_THROTTLE_USER", "120/min"),
-        # Auth-sensitive endpoints (to apply in views via throttle_scope)
         "auth_login": os.getenv("DRF_THROTTLE_AUTH_LOGIN", "5/min"),
         "auth_register": os.getenv("DRF_THROTTLE_AUTH_REGISTER", "3/min"),
         "auth_refresh": os.getenv("DRF_THROTTLE_AUTH_REFRESH", "10/min"),
-        # Future prediction upload endpoint
         "prediction_upload": os.getenv("DRF_THROTTLE_PREDICTION_UPLOAD", "10/min"),
     },
 }
@@ -190,7 +179,6 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(
         days=int(os.getenv("JWT_REFRESH_TOKEN_DAYS", "7"))
     ),
-    # Progressive defaults: keep disabled unless env explicitly enables.
     "ROTATE_REFRESH_TOKENS": env_bool("JWT_ROTATE_REFRESH_TOKENS", False),
     "BLACKLIST_AFTER_ROTATION": env_bool("JWT_BLACKLIST_AFTER_ROTATION", False),
     "UPDATE_LAST_LOGIN": True,
@@ -246,20 +234,20 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = os.getenv("DJANGO_SESSION_COOKIE_SAMESITE", "Lax")
 CSRF_COOKIE_SAMESITE = os.getenv("DJANGO_CSRF_COOKIE_SAMESITE", "Lax")
 
-# Optional hardening for reverse proxy + HSTS in production
 if env_bool("DJANGO_USE_X_FORWARDED_PROTO", False):
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 if env_bool("DJANGO_ENABLE_HSTS", False):
     SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", "31536000"))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
-        "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS", True
+        "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS",
+        True,
     )
     SECURE_HSTS_PRELOAD = env_bool("DJANGO_SECURE_HSTS_PRELOAD", False)
 
 
 # ------------------------------------------------------------------------------
-# Upload security limits (for future predictions upload endpoint)
+# Upload security limits
 # ------------------------------------------------------------------------------
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = int(
@@ -272,7 +260,11 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = int(
 PREDICTION_UPLOAD_MAX_BYTES = int(
     os.getenv("PREDICTION_UPLOAD_MAX_BYTES", str(512 * 1024))
 )
-PREDICTION_UPLOAD_MAX_ROWS = int(os.getenv("PREDICTION_UPLOAD_MAX_ROWS", "5000"))
+
+# Business rule: one CSV contains exactly one data row.
+# This limit cannot be increased through an environment variable.
+PREDICTION_UPLOAD_MAX_ROWS = 1
+
 PREDICTION_UPLOAD_ALLOWED_EXTENSIONS = env_list(
     "PREDICTION_UPLOAD_ALLOWED_EXTENSIONS",
     ".csv",
@@ -317,7 +309,7 @@ PREDICTION_LAB_PLAN_LIMIT = int(os.getenv("PREDICTION_LAB_PLAN_LIMIT", "0"))
 
 
 # ------------------------------------------------------------------------------
-# Email (future "send prediction result by email")
+# Email
 # ------------------------------------------------------------------------------
 
 EMAIL_BACKEND = os.getenv(
@@ -337,7 +329,7 @@ SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
 
 
 # ------------------------------------------------------------------------------
-# Logging (progressive security observability)
+# Logging
 # ------------------------------------------------------------------------------
 
 LOG_LEVEL = os.getenv("DJANGO_LOG_LEVEL", "INFO")
@@ -357,13 +349,25 @@ LOGGING = {
         },
     },
     "loggers": {
-        "django": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": True},
+        "django": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": True,
+        },
         "django.security": {
             "handlers": ["console"],
             "level": "WARNING",
             "propagate": False,
         },
-        "users": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
-        "predictions": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "users": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+        "predictions": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
     },
 }

@@ -3,8 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { submitPredictionCsv } from '../services/predictionApi'
 
 const csvExample = `sequence_id,truncated_dna
-LCASEI_A17,ATGCTTGACTTACCGATGAGTTCTAACGGTACCGTTAGCTAGCTACCGATAGC
-LCASEI_A18,TTGACCGATGAGTTCTAACGGTACCGTTAGCTAGCTACCGATAGCATGCTTGA`
+LCASEI_A17,ATGCTTGACTTACCGATGAGTTCTAACGGTACCGTTAGCTAGCTACCGATAGC`
 
 function PredictionForm() {
   const navigate = useNavigate()
@@ -76,7 +75,7 @@ function PredictionForm() {
     if (loading) return
 
     if (!csvFile) {
-      setError('A CSV file containing truncated DNA is required.')
+      setError('A CSV file containing exactly one truncated DNA sequence is required.')
       setPlanLimitReached(false)
       return
     }
@@ -92,14 +91,18 @@ function PredictionForm() {
     setLoading(true)
 
     try {
-      const result = await submitPredictionCsv({ csvFile })
-      const predictionId = result?.summary?.prediction_id
-      navigate(predictionId ? `/prediction-result/${predictionId}` : '/prediction-result', {
-        state: {
-          predictionResponse: result,
-          submittedFileName: csvFile.name,
-        },
-      })
+      const response = await submitPredictionCsv({ csvFile })
+      const predictionId = response?.summary?.prediction_id
+
+      navigate(
+        predictionId ? `/prediction-result/${predictionId}` : '/prediction-result',
+        {
+          state: {
+            predictionResponse: response,
+            submittedFileName: csvFile.name,
+          },
+        }
+      )
     } catch (err) {
       const message = err?.message || 'Prediction submission failed.'
       const isPlanLimit = message.toLowerCase().includes('free plan limit reached')
@@ -119,41 +122,63 @@ function PredictionForm() {
     <section className="page-bg-prediction page-shell">
       <section className="panel">
         <h1>Prediction submission</h1>
-        <p>Upload a <strong>.csv</strong> file containing truncated DNA sequences to run a prediction.</p>
+        <p>
+          Upload a <strong>.csv</strong> file containing exactly one truncated DNA
+          sequence to run a prediction.
+        </p>
 
         <div className="form-layout section-space">
           <article className="card card-soft">
             <h3>Expected CSV format</h3>
             <p className="muted" style={{ marginTop: '0.45rem' }}>
-              Use a clean CSV with one sequence per line. This ensures secure validation and reliable parsing.
+              Each CSV must contain one header row and exactly one data row.
+              One file produces one prediction and one result.
             </p>
 
             <ul className="simple-list">
               <li>File extension must be <strong>.csv</strong>.</li>
               <li>First line must be a header row.</li>
-              <li>Required columns (exact order): <strong>sequence_id,truncated_dna</strong>.</li>
-              <li><strong>sequence_id</strong> identifies each sequence uniquely.</li>
-              <li><strong>truncated_dna</strong> accepts only <strong>A, C, G, T</strong>.</li>
+              <li>
+                Required columns (exact order):{' '}
+                <strong>sequence_id,truncated_dna</strong>.
+              </li>
+              <li>
+                The file must contain <strong>exactly one DNA sequence</strong>.
+              </li>
+              <li>
+                <strong>sequence_id</strong> identifies the submitted sequence.
+              </li>
+              <li>
+                <strong>truncated_dna</strong> accepts only{' '}
+                <strong>A, C, G, T</strong>.
+              </li>
               <li>Required fields cannot be empty.</li>
-              <li>Backend limits for size and row count still apply.</li>
+              <li>
+                Files with no data row or more than one data row are rejected.
+              </li>
+              <li>Backend file size limits also apply.</li>
             </ul>
 
-            <p className="muted">Example:</p>
-            <pre style={{
-              whiteSpace: 'pre-wrap',
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.10)',
-              borderRadius: '12px',
-              padding: '0.7rem',
-              overflowX: 'auto',
-            }}>
+            <p className="muted">Example: one header row and one data row.</p>
+            <pre
+              style={{
+                whiteSpace: 'pre-wrap',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.10)',
+                borderRadius: '12px',
+                padding: '0.7rem',
+                overflowX: 'auto',
+              }}
+            >
               {csvExample}
             </pre>
           </article>
 
           <form className="card card-feature" onSubmit={handleSubmit}>
             <div className="field">
-              <label htmlFor="dna-csv-file">Truncated DNA CSV file *</label>
+              <label htmlFor="dna-csv-file">
+                CSV file containing one truncated DNA sequence *
+              </label>
 
               <input
                 ref={fileInputRef}
@@ -173,36 +198,57 @@ function PredictionForm() {
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
                     handleUploadBoxClick()
                   }
                 }}
-                aria-label="Click here to upload your CSV file"
+                aria-label="Click here to upload your CSV file containing one DNA sequence"
               >
                 <div className="upload-zone-badge">CSV</div>
-                <p className="upload-zone-title">Click here to upload your CSV file</p>
-                <p className="upload-zone-subtitle">or drag and drop your .csv file</p>
+                <p className="upload-zone-title">
+                  Click here to upload your CSV file
+                </p>
+                <p className="upload-zone-subtitle">
+                  or drag and drop your .csv file containing one DNA sequence
+                </p>
                 <p className="upload-zone-state">
-                  {csvFile ? <>Selected file: <strong>{csvFile.name}</strong></> : 'No file selected yet'}
+                  {csvFile
+                    ? <>Selected file: <strong>{csvFile.name}</strong></>
+                    : 'No file selected yet'}
                 </p>
               </div>
             </div>
 
             {error ? (
-              <div className={planLimitReached ? 'limit-alert' : ''} role="alert" aria-live="assertive">
-                <p style={{ color: '#ffb4b4', margin: '0.4rem 0 0' }}>{error}</p>
+              <div
+                className={planLimitReached ? 'limit-alert' : ''}
+                role="alert"
+                aria-live="assertive"
+              >
+                <p style={{ color: '#ffb4b4', margin: '0.4rem 0 0' }}>
+                  {error}
+                </p>
                 {planLimitReached ? (
-                  <div className="form-actions" style={{ marginTop: '0.55rem' }}>
-                    <Link to="/premium" className="btn btn-accent">View Premium plan</Link>
+                  <div
+                    className="form-actions"
+                    style={{ marginTop: '0.55rem' }}
+                  >
+                    <Link to="/premium" className="btn btn-accent">
+                      View Premium plan
+                    </Link>
                   </div>
                 ) : null}
               </div>
             ) : null}
 
             <div className="form-actions upload-submit-row">
-              <button className="btn btn-accent" type="submit" disabled={loading}>
+              <button
+                className="btn btn-accent"
+                type="submit"
+                disabled={loading}
+              >
                 {loading ? 'Uploading...' : 'Run prediction'}
               </button>
             </div>

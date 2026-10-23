@@ -29,9 +29,17 @@ class Prediction(models.Model):
         related_name="predictions",
     )
     file_name = models.CharField(max_length=255)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+    )
     submitted_at = models.DateTimeField(auto_now_add=True)
-    model_mode = models.CharField(max_length=20, choices=MODEL_MODE_CHOICES, default=MODEL_MODE_MOCK)
+    model_mode = models.CharField(
+        max_length=20,
+        choices=MODEL_MODE_CHOICES,
+        default=MODEL_MODE_MOCK,
+    )
     row_count = models.PositiveIntegerField(default=0)
     is_pinned = models.BooleanField(default=False)
 
@@ -43,10 +51,10 @@ class Prediction(models.Model):
 
 
 class PredictionResult(models.Model):
-    prediction = models.ForeignKey(
+    prediction = models.OneToOneField(
         Prediction,
         on_delete=models.CASCADE,
-        related_name="results",
+        related_name="result",
     )
     sequence_id = models.CharField(max_length=255)
     predicted_class = models.CharField(max_length=100)

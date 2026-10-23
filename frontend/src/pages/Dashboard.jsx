@@ -1,19 +1,42 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchDashboardSummary } from '../services/predictionApi'
 import { IconBolt, IconChart, IconShield } from '../components/Icons'
 
 function resultBadgeClass(result) {
-  const normalized = (result || '').toLowerCase()
+  const normalized = String(result || '').trim().toLowerCase()
+
+  if (!normalized) {
+    return 'result-status-badge'
+  }
 
   if (normalized.includes('non')) {
     return 'result-status-badge result-status-non'
   }
 
-  return 'result-status-badge result-status-probiotic'
+  if (normalized.includes('probiotic') || normalized.includes('safe')) {
+    return 'result-status-badge result-status-probiotic'
+  }
+
+  return 'result-status-badge'
+}
+
+function getLatestResultLabel(prediction, result) {
+  if (!prediction) return 'No prediction yet'
+
+  if (result) {
+    return result.result_label || result.predicted_class || 'Result available'
+  }
+
+  if (prediction.status === 'pending') return 'Pending'
+  if (prediction.status === 'failed') return 'Failed'
+
+  return 'No result available'
 }
 
 function toPercent(value) {
+  if (value === null || value === undefined || value === '') return '—'
+
   const n = Number(value)
 
   if (!Number.isFinite(n)) return '—'
@@ -58,6 +81,18 @@ function getRemainingLabel(plan) {
   return String(plan?.remaining ?? 0)
 }
 
+function getUsagePercent(plan) {
+  if (plan?.is_unlimited) return 0
+
+  const limit = Number(plan?.limit)
+  const used = Number(plan?.used)
+
+  if (!Number.isFinite(limit) || limit <= 0) return 0
+  if (!Number.isFinite(used)) return 0
+
+  return Math.min(100, Math.round((used / limit) * 100))
+}
+
 function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -67,9 +102,6 @@ function Dashboard() {
     let mounted = true
 
     async function run() {
-      setLoading(true)
-      setError('')
-
       try {
         const data = await fetchDashboardSummary()
 
@@ -109,22 +141,21 @@ function Dashboard() {
 
   const latestPrediction = summary?.latest_prediction
   const latestResult = summary?.latest_result
+  const latestResultLabel = getLatestResultLabel(
+    latestPrediction,
+    latestResult,
+  )
+  const latestBadgeClass = latestPrediction && latestResult
+    ? resultBadgeClass(
+      latestResult.result_label || latestResult.predicted_class,
+    )
+    : 'result-status-badge'
+
   const recentHistory = Array.isArray(summary?.recent_history)
     ? summary.recent_history
     : []
 
-  const usagePercent = useMemo(() => {
-    if (plan?.is_unlimited) return 0
-
-    const limit = Number(plan?.limit)
-    const used = Number(plan?.used)
-
-    if (!Number.isFinite(limit) || limit <= 0) return 0
-    if (!Number.isFinite(used)) return 0
-
-    return Math.min(100, Math.round((used / limit) * 100))
-  }, [plan])
-
+  const usagePercent = getUsagePercent(plan)
   const showUpgradeLink = !plan?.is_premium
 
   return (
@@ -201,9 +232,7 @@ function Dashboard() {
 
               <div className="kpi-meta">
                 <small>Latest classification</small>
-                <strong>
-                  {latestResult?.result_label || 'No prediction yet'}
-                </strong>
+                <strong>{latestResultLabel}</strong>
                 <span>Last prediction</span>
               </div>
             </article>
@@ -229,12 +258,8 @@ function Dashboard() {
             <div className="dashboard-section-head">
               <h2>Latest prediction</h2>
 
-              <span
-                className={resultBadgeClass(
-                  latestResult?.result_label || 'Probiotic',
-                )}
-              >
-                {latestResult?.result_label || 'Pending'}
+              <span className={latestBadgeClass}>
+                {latestResultLabel}
               </span>
             </div>
 
@@ -252,10 +277,10 @@ function Dashboard() {
                   <strong>Status:</strong> {latestPrediction.status}
                 </p>
                 <p>
-                  <strong>Rows:</strong> {latestPrediction.row_count}
+                  <strong>Sequence count:</strong> {latestPrediction.row_count}
                 </p>
                 <p>
-                  <strong>Latest sequence:</strong>{' '}
+                  <strong>Sequence:</strong>{' '}
                   {latestResult?.sequence_id || '—'}
                 </p>
                 <p>

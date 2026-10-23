@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom'
 import {
   IconChart,
   IconLock,
-  IconMail,
   IconShield,
   IconSpark,
   IconUpload,
@@ -15,19 +14,19 @@ const workflowSteps = [
     id: '01',
     title: 'Upload CSV',
     description:
-      'Select a .csv file containing the exact columns sequence_id,truncated_dna.',
+      'Select a .csv file with the columns sequence_id,truncated_dna, one header row, and exactly one data row.',
   },
   {
     id: '02',
     title: 'Backend validation',
     description:
-      'The backend checks the file format, required columns, required values, and DNA characters before processing.',
+      'The backend checks that the CSV contains exactly one DNA sequence, then validates the file format, required columns, required values, and DNA characters before processing.',
   },
   {
     id: '03',
     title: 'TensorFlow Lite inference',
     description:
-      'Validated DNA sequences are processed by the integrated TensorFlow Lite model.',
+      'The validated DNA sequence is processed by the integrated TensorFlow Lite model.',
   },
   {
     id: '04',
@@ -41,7 +40,7 @@ const coreFeatures = [
   {
     title: 'Structured CSV input',
     description:
-      'The prediction flow uses a clear file format with one sequence identifier and one truncated DNA sequence per row.',
+      'Each CSV contains one header row and exactly one data row with a sequence identifier and one truncated DNA sequence.',
     icon: IconUpload,
   },
   {
@@ -53,7 +52,7 @@ const coreFeatures = [
   {
     title: 'Readable results',
     description:
-      'Each processed sequence receives a probiotic or non-probiotic classification with a confidence score.',
+      'Each submitted CSV produces one prediction with one classification and a confidence score.',
     icon: IconChart,
   },
 ]
@@ -62,20 +61,20 @@ const validationFeatures = [
   {
     title: 'Backend validation',
     description:
-      'CSV uploads are checked for the expected file type, exact column structure, required values, and valid A, C, G, and T characters.',
+      'CSV uploads are checked for exactly one data row, the expected file type, exact column structure, required values, and valid A, C, G, and T characters.',
     icon: IconShield,
   },
   {
     title: 'Account-based history',
     description:
-      'Prediction records and their results are stored for the authenticated user and remain available through the History page.',
+      'Each completed prediction and its single result are stored for the authenticated user and remain available through the History page.',
     icon: IconLock,
   },
   {
-    title: 'Result email on request',
+    title: 'Plan-based access',
     description:
-      'A user can request the email delivery of a prediction result. Actual delivery depends on the email backend configured for the environment.',
-    icon: IconMail,
+      'Free, Pro, and Lab plans define prediction limits enforced by the backend. Lab supports unlimited predictions when configured.',
+    icon: IconChart,
   },
 ]
 
@@ -98,8 +97,9 @@ function Home() {
             </h1>
 
             <p className="hero-subtitle hero-reveal hero-reveal-3">
-              Upload a structured CSV file and run genomic inference with the
-              TensorFlow Lite model integrated into ProBioPredict.
+              Upload a CSV containing exactly one DNA sequence and run genomic
+              inference with the TensorFlow Lite model integrated into
+              ProBioPredict.
             </p>
 
             <div className="home-hero-actions hero-reveal hero-reveal-4">
@@ -128,7 +128,7 @@ function Home() {
           </span>
 
           <span className="home-fact-badge">
-            Validated CSV input
+            One sequence per CSV
           </span>
 
           <span className="home-fact-badge">
@@ -158,8 +158,7 @@ function Home() {
             </h2>
 
             <p className="section-subtitle">
-              The interface guides each authenticated user from CSV upload to a
-              saved and readable result.
+              One CSV, one DNA sequence, one prediction, and one saved result.
             </p>
           </header>
 
@@ -286,8 +285,8 @@ function Home() {
           </h2>
 
           <p className="section-subtitle">
-            Prepare a CSV file with sequence_id and truncated_dna, then submit
-            it through the guided prediction flow.
+            Prepare a CSV with the columns sequence_id,truncated_dna, one
+            header row, and exactly one data row containing your DNA sequence.
           </p>
 
           <div className="home-final-actions">
@@ -296,7 +295,7 @@ function Home() {
             </Link>
 
             <Link className="btn btn-ghost" to="/premium">
-              View premium plans
+              Explore plans
             </Link>
 
             {authenticated ? (

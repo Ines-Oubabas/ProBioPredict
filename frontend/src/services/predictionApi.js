@@ -99,16 +99,25 @@ export async function fetchDashboardSummary() {
 
 export async function sendPredictionResultByEmail({
   summary,
-  results,
+  result,
   submittedFileName = null,
   submittedSequenceId = null,
 }) {
+  if (!result || typeof result !== 'object' || Array.isArray(result)) {
+    throw new Error('A prediction result is required.')
+  }
+
+  const predictionId = summary?.prediction_id
+  if (!Number.isInteger(predictionId) || predictionId <= 0) {
+    throw new Error('A valid prediction ID is required to send the result by email.')
+  }
+
   const response = await fetch(`${API_BASE_URL}/predictions/send-result-email/`, {
     method: 'POST',
     headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      summary: summary || {},
-      results: Array.isArray(results) ? results : [],
+      summary,
+      result,
       submittedFileName,
       submittedSequenceId,
     }),
