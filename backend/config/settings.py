@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     "users",
     "predictions",
     "billing",
+    "contact.apps.ContactConfig",
     # Progressive strategy:
     # keep disabled by default; enable with env toggle when ready.
     # "rest_framework_simplejwt.token_blacklist",
@@ -164,6 +165,7 @@ REST_FRAMEWORK = {
         "auth_register": os.getenv("DRF_THROTTLE_AUTH_REGISTER", "3/min"),
         "auth_refresh": os.getenv("DRF_THROTTLE_AUTH_REFRESH", "10/min"),
         "prediction_upload": os.getenv("DRF_THROTTLE_PREDICTION_UPLOAD", "10/min"),
+        "contact": os.getenv("DRF_THROTTLE_CONTACT", "5/hour"),
     },
 }
 
