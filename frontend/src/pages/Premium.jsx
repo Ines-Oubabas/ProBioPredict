@@ -4,6 +4,39 @@ import { premiumPlans } from '../data/mockData'
 import { isAuthenticated } from '../services/authApi'
 import { createCheckoutSession } from '../services/billingApi'
 
+const planPresentation = {
+  free: {
+    badge: 'Get started',
+    description: 'Explore predictions with a free account.',
+    bullets: [
+      'Prediction quota: 3 by default',
+      'One DNA sequence per CSV upload',
+      'Personal prediction history',
+      'Manual result download in JSON format',
+    ],
+  },
+  pro: {
+    badge: 'Pro',
+    description: 'Continue your predictions with the Pro quota.',
+    bullets: [
+      'Prediction quota: 100 by default',
+      'One DNA sequence per CSV upload',
+      'Personal prediction history',
+      'Manual result download in JSON format',
+    ],
+  },
+  lab: {
+    badge: 'Lab',
+    description: 'Use the Lab quota for your prediction workflow.',
+    bullets: [
+      'Unlimited predictions when configured',
+      'One DNA sequence per CSV upload',
+      'Personal prediction history',
+      'Manual result download in JSON format',
+    ],
+  },
+}
+
 function getPlanKey(plan) {
   const name = plan?.name?.toLowerCase() || ''
 
@@ -57,14 +90,14 @@ function Premium() {
           <h1 className="section-title">Premium plans</h1>
 
           <p className="section-subtitle">
-            Start free, validate your workflow, and scale with the right plan
-            as your prediction volume grows.
+            Choose a prediction quota that fits your usage.
           </p>
 
           <p className="premium-intro-copy">
-            Every user can begin with Free / Starter. The free plan includes up
-            to 3 predictions. Beyond that limit, upgrading to a paid plan is
-            required.
+            All plans include CSV prediction submission, personal prediction
+            history, and manual result downloads in JSON format.
+            Pro and Lab provide access to their configured prediction quotas
+            once the paid subscription is active.
           </p>
         </header>
 
@@ -83,6 +116,8 @@ function Premium() {
             const isLab = planKey === 'lab'
             const isLoading = loadingPlan === planKey
 
+            const presentation = planPresentation[planKey || 'free']
+
             const toneClass = isPro
               ? 'plan-pro'
               : isStarter
@@ -92,14 +127,6 @@ function Premium() {
                   : ''
 
             const highlightClass = plan.highlighted ? 'plan-highlight' : ''
-
-            const badgeLabel =
-              plan.badge ||
-              (isPro
-                ? 'Most popular'
-                : isStarter
-                  ? 'Get started'
-                  : 'For teams')
 
             let buttonLabel = plan.cta || 'Choose plan'
 
@@ -116,19 +143,18 @@ function Premium() {
                 key={plan.name}
                 className={`premium-plan-card ${toneClass} ${highlightClass}`.trim()}
               >
-                <span className="plan-badge">{badgeLabel}</span>
+                <span className="plan-badge">{presentation.badge}</span>
 
                 <div className="plan-top">
                   <h3>{plan.name}</h3>
                   <p className="price">{plan.price}</p>
-
-                  {plan.description ? (
-                    <p className="plan-description">{plan.description}</p>
-                  ) : null}
+                  <p className="plan-description">
+                    {presentation.description}
+                  </p>
                 </div>
 
                 <ul className="premium-feature-list">
-                  {plan.bullets.map((item) => (
+                  {presentation.bullets.map((item) => (
                     <li key={item}>
                       <span className="feature-check" aria-hidden="true">
                         ✓
@@ -153,17 +179,23 @@ function Premium() {
 
         <div className="premium-help-text section-space">
           <p className="muted">
-            Free / Starter is ideal for testing the platform. Pro fits regular
-            or advanced usage. Lab is made for teams, researchers, and
-            laboratories.
+            Quotas depend on the platform configuration. The default limits
+            are 3 predictions for Free and 100 for Pro. Lab is unlimited
+            when configured without a prediction limit; otherwise, its
+            configured limit applies.
+          </p>
+          <p className="muted">
+            Usage is based on predictions currently saved in your account.
+            Prediction quotas do not reset automatically each month.
+            Your dashboard displays your current limit and usage.
           </p>
         </div>
 
         <div className="premium-footnote section-space">
           <p className="muted">
-            Paid-plan Checkout is created securely by the ProBioPredict backend.
-            Your Premium status is activated only after Stripe confirms payment
-            through the backend webhook.
+            Pro and Lab subscriptions use Stripe Checkout. Your paid plan
+            becomes available after the backend confirms an active or
+            trialing subscription through verified Stripe webhook events.
           </p>
         </div>
       </section>
